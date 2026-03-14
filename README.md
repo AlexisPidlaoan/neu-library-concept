@@ -1,5 +1,48 @@
-# Firebase Studio
+# NEU Library Visitor Management System
 
-This is a NextJS starter in Firebase Studio.
+A digital logbook application for New Era University to track and analyze library usage by students and faculty.
 
-To get started, take a look at src/app/page.tsx.
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js installed
+- A Firebase project created at [Firebase Console](https://console.firebase.google.com/)
+
+### Firebase Setup
+1. **Enable Authentication**: Enable Google and Anonymous sign-in providers.
+2. **Enable Firestore**: Create a database in production mode.
+3. **Configure Config**: Ensure `src/firebase/config.ts` matches your Firebase web app credentials.
+
+## 📂 Deployment to GitHub
+
+To push this project to your GitHub account:
+
+1. Initialize git:
+   ```bash
+   git init
+   ```
+2. Add all files:
+   ```bash
+   git add .
+   ```
+3. Commit your changes:
+   ```bash
+   git commit -m "Initial commit: NEU Library Visitor System"
+   ```
+4. Create a new repository on GitHub.
+5. Link to your GitHub repository and push:
+   ```bash
+   git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+## 🛠 Features
+- **Institutional Login**: Restricts access to `@neu.edu.ph` email addresses.
+- **Terminal Mode**: Quick Student ID check-in with automatic account linking.
+- **Admin Dashboard**: Real-time analytics, visitor trends, and department breakdowns.
+- **User Management**: Search, block, or unblock users to maintain facility security.
+- **AI Suggestions**: Smart "Purpose of Visit" suggestions using Google Gemini.
+
+---
+© 2024 New Era University Library
