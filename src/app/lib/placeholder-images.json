@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-library",
+      "description": "A modern academic library interior with students studying.",
+      "imageUrl": "https://picsum.photos/seed/studyflow-hero/1200/600",
+      "imageHint": "library interior academic"
+    },
+    {
+      "id": "app-logo",
+      "description": "Abstract logo representing knowledge flow.",
+      "imageUrl": "https://picsum.photos/seed/studyflow-logo/200/200",
+      "imageHint": "education logo abstract"
+    }
+  ]
+}

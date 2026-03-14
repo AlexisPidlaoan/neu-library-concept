@@ -65,6 +65,10 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        success: {
+          DEFAULT: '#4CAF50',
+          foreground: '#FFFFFF',
+        }
       },
       borderRadius: {
         lg: 'var(--radius)',
