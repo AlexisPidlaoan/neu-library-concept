@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -22,18 +23,17 @@ export default function Home() {
 
   useEffect(() => {
     if (profile && !loading && !pendingStudentId) {
-      router.push('/dashboard/check-in');
+      if (profile.role === 'admin') {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/dashboard/check-in');
+      }
     }
   }, [profile, loading, router, pendingStudentId]);
 
   const formatStudentId = (value: string) => {
-    // Remove all non-digits
     const digits = value.replace(/\D/g, "");
-    
-    // Max 10 digits allowed (2-5-3)
     const truncated = digits.slice(0, 10);
-    
-    // Apply mask: XX-XXXXX-XXX
     let formatted = truncated;
     if (truncated.length > 2) {
       formatted = `${truncated.slice(0, 2)}-${truncated.slice(2)}`;
@@ -41,7 +41,6 @@ export default function Home() {
     if (truncated.length > 7) {
       formatted = `${truncated.slice(0, 2)}-${truncated.slice(2, 7)}-${truncated.slice(7)}`;
     }
-    
     return formatted;
   };
 

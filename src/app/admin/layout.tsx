@@ -1,13 +1,15 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { LayoutDashboard, History, LogIn, LogOut, GraduationCap, Users, BookMarked } from 'lucide-react';
+import { LayoutDashboard, LogOut, GraduationCap, Users, BookMarked, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, logout } = useAuth();
@@ -32,11 +34,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const menuItems = [
-    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in' },
-    { label: 'My History', icon: History, href: '/dashboard/history' },
-  ];
-
   const adminItems = [
     { label: 'Visitor Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
     { label: 'College Management', icon: BookMarked, href: '/admin/colleges' },
@@ -57,24 +54,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <SidebarContent className="px-2">
           <SidebarMenu>
             <div className="mb-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
-              Student Panel
-            </div>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
-                  <Link href={item.href} className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5" />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-
-            <div className="mt-8 mb-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
               Admin Panel
             </div>
             {adminItems.map((item) => (
@@ -91,6 +70,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+
+            <div className="mt-4 px-4">
+              <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2">
+                <Link href="/dashboard/check-in">
+                  <LogIn className="h-3 w-3" />
+                  Student View
+                </Link>
+              </Button>
+            </div>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="p-4">
@@ -112,6 +100,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/check-in" className="cursor-pointer">
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Student Check-in
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out

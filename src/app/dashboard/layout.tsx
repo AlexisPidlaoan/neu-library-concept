@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { LayoutDashboard, History, LogIn, LogOut, GraduationCap, Settings, Users, BookMarked, User as UserIcon } from 'lucide-react';
+import { History, LogIn, LogOut, GraduationCap, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -33,12 +34,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const menuItems = [
     { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in' },
     { label: 'My History', icon: History, href: '/dashboard/history' },
-  ];
-
-  const adminItems = [
-    { label: 'Visit Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-    { label: 'College Management', icon: BookMarked, href: '/admin/colleges' },
-    { label: 'User Management', icon: Users, href: '/admin/users' },
   ];
 
   return (
@@ -73,25 +68,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             ))}
 
             {isAdmin && (
-              <>
-                <div className="mt-8 mb-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
-                  Admin Panel
-                </div>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={pathname === item.href}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href} className="flex items-center gap-3">
-                        <item.icon className="h-5 w-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </>
+              <div className="mt-4 px-4">
+                <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2">
+                  <Link href="/admin/dashboard">
+                    <LayoutDashboard className="h-3 w-3" />
+                    Admin View
+                  </Link>
+                </Button>
+              </div>
             )}
           </SidebarMenu>
         </SidebarContent>
@@ -114,6 +98,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {isAdmin && (
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/dashboard" className="cursor-pointer">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Admin Dashboard
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
@@ -128,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <SidebarTrigger />
             <div className="h-4 w-[1px] bg-border hidden md:block" />
             <h2 className="font-semibold text-lg hidden md:block">
-              {isAdmin && pathname.startsWith('/admin') ? 'Administration' : 'Library Dashboard'}
+              Library Dashboard
             </h2>
           </div>
           <div className="flex items-center gap-4">
@@ -145,3 +137,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </SidebarProvider>
   );
 }
+import { Button } from '@/components/ui/button';
