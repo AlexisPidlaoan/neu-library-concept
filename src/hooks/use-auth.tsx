@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 
+const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph'];
+
 interface AuthContextType {
   user: User | null;
   profile: any | null;
@@ -69,9 +71,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
+        const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email);
 
         if (userDoc.exists()) {
-          const userData = userDoc.data();
+          let userData = userDoc.data();
+          
           if (userData.isBlocked) {
             await signOut(auth);
             toast({
@@ -83,6 +87,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(null);
             setLoading(false);
             return;
+          }
+
+          // Force admin role if email matches
+          if (isAdminEmail && userData.role !== 'admin') {
+            await updateDoc(userDocRef, { role: 'admin' });
+            userData.role = 'admin';
           }
 
           // If we have a pendingStudentId, link it now
@@ -108,7 +118,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
             photoURL: firebaseUser.photoURL,
-            role: 'student',
+            role: isAdminEmail ? 'admin' : 'student',
             studentId: pendingStudentId || null,
             isBlocked: false,
             createdAt: new Date().toISOString(),
