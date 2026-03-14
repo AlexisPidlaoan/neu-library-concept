@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
 import { collection, query, orderBy, getDocs, where, Timestamp } from 'firebase/firestore';
@@ -11,12 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, subDays, isSameDay } from 'date-fns';
-import { LayoutDashboard, Download, Search, Users, School, Calendar as CalendarIcon, Loader2, TrendingUp, BookOpen } from 'lucide-react';
+import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay } from 'date-fns';
+import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer } from "@/components/ui/chart";
 
 const { firestore: db } = initializeFirebase();
 
@@ -75,7 +74,7 @@ export default function AdminDashboardPage() {
   });
 
   // Trend Data for Chart
-  const trendData = React.useMemo(() => {
+  const trendData = useMemo(() => {
     const now = new Date();
     let interval: { start: Date; end: Date };
     
