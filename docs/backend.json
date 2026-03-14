@@ -1,0 +1,260 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account within the StudyFlow application, including their profile and access status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's institutional email address, used for authentication. Must be from @neu.edu.ph domain.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name as provided by their authentication provider."
+        },
+        "isBlocked": {
+          "type": "boolean",
+          "description": "A boolean indicating if the user is currently blocked from accessing the application."
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role within the application (e.g., 'user', 'admin')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the user account was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the user account information was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "name",
+        "isBlocked",
+        "role",
+        "createdAt"
+      ]
+    },
+    "College": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "College",
+      "type": "object",
+      "description": "Represents an academic college within the institution, which users can select during check-in.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the College entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the college."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the college entry was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the college entry was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt"
+      ]
+    },
+    "VisitPurpose": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VisitPurpose",
+      "type": "object",
+      "description": "Represents a pre-defined or suggested purpose for visiting the library, managed by administrators.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the VisitPurpose entity."
+        },
+        "purpose": {
+          "type": "string",
+          "description": "The concise descriptive text for a common purpose of visit (e.g., 'Study', 'Research', 'Group Meeting')."
+        },
+        "description": {
+          "type": "string",
+          "description": "An optional longer description explaining the visit purpose."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the visit purpose was added.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when the visit purpose was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "purpose",
+        "createdAt"
+      ]
+    },
+    "VisitLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VisitLog",
+      "type": "object",
+      "description": "Records an individual user's visit to the library, including purpose and associated college.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the VisitLog entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who logged this visit. (Relationship: User 1:N VisitLog)"
+        },
+        "collegeId": {
+          "type": "string",
+          "description": "Reference to the College associated with this visit. (Relationship: College 1:N VisitLog)"
+        },
+        "purposeId": {
+          "type": "string",
+          "description": "Reference to the specific VisitPurpose for this visit. (Relationship: VisitPurpose 1:N VisitLog)"
+        },
+        "checkInTime": {
+          "type": "string",
+          "description": "The timestamp when the user checked into the library.",
+          "format": "date-time"
+        },
+        "checkOutTime": {
+          "type": "string",
+          "description": "The timestamp when the user checked out of the library. This field is optional, as the initial log is for entry only.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when this visit log entry was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp when this visit log entry was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "collegeId",
+        "purposeId",
+        "checkInTime",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. The 'userId' document ID matches the Firebase Authentication UID. Contains 'isBlocked' and 'role' fields directly on the document for immediate authorization checks (e.g., blocking access) and UI display. Users can read and update their own profiles. Administrators can list all users and modify 'isBlocked' status.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{adminId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "A denormalized collection used exclusively for highly efficient Firebase Security Rules checks to determine if a user has 'admin' privileges. A lightweight document (e.g., an empty object) exists here if and only if the corresponding user in '/users/{uid}' has a 'role' of 'admin'. The 'adminId' is the user's UID. This ensures Authorization Independence by enabling quick `get().exists()` checks without accessing the '/users' collection for every authorization decision. Consistency with '/users/{uid}.role' must be maintained via Cloud Functions.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique Firebase Authentication UID of an administrator."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/colleges/{collegeId}",
+        "definition": {
+          "entityName": "College",
+          "schema": {
+            "$ref": "#/backend/entities/College"
+          },
+          "description": "Stores details about academic colleges. Accessible (read-only and list) by all authenticated users for selection during check-in. Fully managed (create, read, update, delete) by administrators. This collection maintains a homogeneous security posture.",
+          "params": [
+            {
+              "name": "collegeId",
+              "description": "The unique identifier for a college."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/visitPurposes/{purposeId}",
+        "definition": {
+          "entityName": "VisitPurpose",
+          "schema": {
+            "$ref": "#/backend/entities/VisitPurpose"
+          },
+          "description": "Stores predefined purposes for library visits. Accessible (read-only and list) by all authenticated users for selection during check-in. Fully managed by administrators. This collection maintains a homogeneous security posture.",
+          "params": [
+            {
+              "name": "purposeId",
+              "description": "The unique identifier for a visit purpose."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/visitLogs/{visitLogId}",
+        "definition": {
+          "entityName": "VisitLog",
+          "schema": {
+            "$ref": "#/backend/entities/VisitLog"
+          },
+          "description": "Records individual library visit entries. Each document contains 'userId', 'collegeId', and 'purposeId' for comprehensive logging. Users can create new logs and update their own logs (e.g., for check-out). Individual users can securely query and retrieve only their own visit history (QAP enabled by `request.query.where.userId`). Administrators have global read/list access to all visit logs for reporting, enabled by the `/roles_admin` check.",
+          "params": [
+            {
+              "name": "visitLogId",
+              "description": "The unique identifier for a visit log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed following the core principles of Authorization Independence, Structural Segregation, consistent Access Modeling, and Data Clarity. This design prioritizes simple, robust, and easily debuggable security rules, explicitly addressing the application's distinct access patterns for users and administrators.\n\n**Authorization Independence via Denormalization:**\n*   **Global Roles (`/roles_admin/{adminId}`):** To achieve critical authorization independence and enable efficient rule checks, an explicit `/roles_admin` collection is introduced. Instead of relying on `get('/users/{uid}')` to check the `role` field for every permission check, a lightweight document (e.g., just an empty object or a timestamp) is created in `/roles_admin/{adminId}` for every user with an 'admin' role. Firebase Security Rules can then quickly verify `get('/roles_admin/$(request.auth.uid)').exists()` for admin-specific operations. This avoids `get()` calls on potentially large or distant documents and allows atomic operations (e.g., creating a new entity with admin privilege check) without race conditions. This denormalization requires a Cloud Function or similar trusted backend logic to keep `/users/{uid}.role` and `/roles_admin/{adminId}` in sync.\n*   **Visit Logs (`/visitLogs/{visitLogId}`):** Each `VisitLog` document explicitly includes the `userId`, `collegeId`, and `purposeId`. This denormalization ensures that all necessary data for authorization (e.g., checking if `request.auth.uid` matches `resource.data.userId`) is present directly on the document being accessed, eliminating cross-document `get()` calls for ownership checks.\n\n**Structural Segregation (Homogeneous Security Posture):**\nEach collection (`/users`, `/roles_admin`, `/colleges`, `/visitPurposes`, `/visitLogs`) is designed to contain documents with a uniform security posture. This simplifies security rules by dedicating specific collections to specific access patterns:\n*   `/users`: Primarily for user self-management and admin management of user profiles.\n*   `/roles_admin`: Exclusively for admin role lookup in security rules.\n*   `/colleges` & `/visitPurposes`: Publicly readable by all authenticated users, writable only by administrators.\n*   `/visitLogs`: Writable by individual users (for their own logs), readable by individual users (their own history), and globally readable by administrators.\n\n**Querying and Access Patterns (QAPs):**\n*   **User Profile (`/users/{userId}`):** Personal profiles are secured by path-based ownership, where `userId` must match `request.auth.uid`. For admin user management, administrators are allowed to `list` and `update` across the collection using the `/roles_admin` check.\n*   **Admin-Managed Data (`/colleges`, `/visitPurposes`):** These collections allow `list` and `read` for all authenticated users (required for dropdowns) and `create`, `update`, `delete` for administrators (checked via `/roles_admin` existence). This enables QAPs for all users to read these lookup tables.\n*   **Personal Visit History (`/visitLogs/{visitLogId}`):** Users can securely query their own visit history. The security rules for `/visitLogs` will enforce that a `list` query must include a `where('userId', '==', request.auth.uid)` clause, thus serving as a Query-Aware Permission (QAP). This allows users to only retrieve their own data efficiently and securely without exposing other users' data.\n*   **Admin All Visits Dashboard (`/visitLogs/{visitLogId}`):** Administrators, identified by their entry in `/roles_admin`, are granted `list` and `read` access to *all* documents in the `/visitLogs` collection. This allows them to perform global searches, filtering, and aggregation for the dashboard without being restricted by `userId` in the query.\n\nThis structure ensures that each data access requirement is met with a clear, explicit, and secure authorization model, reducing complexity and potential vulnerabilities in security rules. Please note that the error message 'Firebase: Error (auth/auth-domain-config-required)' you provided indicates a client-side Firebase Auth configuration issue (missing or incorrect 'authDomain' in your `firebaseConfig` object), and is not directly related to the Firestore data structure design. This recommendation addresses the data structure as requested."
+  }
+}

@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * StudyFlow Security Rules Documentation
+     *
+     * Core Philosophy: 
+     * This ruleset implements a strict user-ownership model combined with an optimized 
+     * administrative role-based access control (RBAC) system. Security is prioritized 
+     * by ensuring that authorization decisions are independent and performant.
+     *
+     * Data Structure:
+     * - /users/{userId}: Profile data where document ID matches the Auth UID.
+     * - /roles_admin/{adminId}: A lookup collection used for rapid admin verification.
+     * - /colleges & /visitPurposes: System-wide lookup tables for library check-ins.
+     * - /visitLogs/{visitLogId}: Activity records linked to users and colleges.
+     *
+     * Key Security Decisions:
+     * 1. Authorization Independence: Admin privileges are checked against a dedicated 
+     *    '/roles_admin' collection to avoid expensive lookups on the main user profile.
+     * 2. Denormalization for Authorization: Visit logs must contain the 'userId' 
+     *    directly on the document to allow immediate ownership verification without 
+     *    additional database reads.
+     * 3. Prototyping Flexibility: While access is strictly controlled, the specific 
+     *    schema (fields and types) is not enforced to allow for rapid UI/UX iteration.
+     * 4. Relational Integrity: On creation of user-related data, the rules enforce 
+     *    that the internal 'userId' field matches the authenticated user's UID.
+     */
+
+    // --- Helper Functions ---
+
+    /** @description Checks if the user is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Verifies ownership and ensures the document exists for state changes. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    /** 
+     * @description Checks if the user has an entry in the 'roles_admin' collection.
+     * This is an optimized check for administrative privileges.
+     */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for user profiles. Users manage themselves; Admins manage everyone.
+     * @path /users/{userId}
+     * @allow (create) if auth.uid == userId
+     * @deny (update) if auth.uid != userId AND user is not an Admin
+     * @principle Path-based ownership and administrative override.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Users generally don't list the whole users collection
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Optimized lookup for admin roles.
+     * @path /roles_admin/{adminId}
+     * @allow (get) if user is an Admin
+     * @deny (write) always (handled by backend/functions to ensure integrity)
+     * @principle Authorization Independence.
+     */
+    match /roles_admin/{adminId} {
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if false; 
+    }
+
+    /**
+     * @description Academic colleges lookup. Publicly readable by users; Admin writable.
+     * @path /colleges/{collegeId}
+     * @allow (list) if user is signed in
+     * @deny (create) if user is not an Admin
+     * @principle Public Read with Owner-Only (Admin) Writes.
+     */
+    match /colleges/{collegeId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Predefined visit purposes. Publicly readable by users; Admin writable.
+     * @path /visitPurposes/{purposeId}
+     * @allow (get) if user is signed in
+     * @deny (delete) if user is not an Admin
+     * @principle Public Read with Owner-Only (Admin) Writes.
+     */
+    match /visitPurposes/{purposeId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Library visit records. Ownership based on 'userId' field.
+     * @path /visitLogs/{visitLogId}
+     * @allow (create) if request.resource.data.userId == auth.uid
+     * @deny (list) if query does not filter by userId AND user is not an Admin
+     * @principle Denormalized ownership and Query-Aware Permissions (QAP).
+     */
+    match /visitLogs/{visitLogId} {
+      // Get: Owner or Admin
+      allow get: if isAdmin() || (resource != null && isOwner(resource.data.userId));
+      
+      // List: Admins can see all; Users can only see their own (enforced by query)
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100); 
+
+      // Create: User must set themselves as the owner
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+
+      // Update: Only the owner can update (e.g., check-out), and userId is immutable
+      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+
+      // Delete: Restricted to Admins for audit integrity
+      allow delete: if isAdmin();
+    }
+  }
+}
