@@ -1,17 +1,19 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { GraduationCap, BookOpen, LogIn, ShieldCheck, Nfc } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Home() {
-  const { profile, login, loginWithId, loading } = useAuth();
+  const { profile, login, loginWithId, loading, pendingStudentId, cancelLinking } = useAuth();
   const router = useRouter();
   const [studentId, setStudentId] = useState('');
   const idInputRef = useRef<HTMLInputElement>(null);
@@ -19,20 +21,10 @@ export default function Home() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero-library');
 
   useEffect(() => {
-    if (profile && !loading) {
+    if (profile && !loading && !pendingStudentId) {
       router.push('/dashboard/check-in');
     }
-  }, [profile, loading, router]);
-
-  useEffect(() => {
-    // Keep input focused for RFID tap simulation
-    const interval = setInterval(() => {
-      if (idInputRef.current && document.activeElement !== idInputRef.current) {
-        // Only autofocus if the user isn't typing elsewhere
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [profile, loading, router, pendingStudentId]);
 
   const handleIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,12 +55,11 @@ export default function Home() {
           <span className="font-bold text-2xl tracking-tight text-primary">NEU Library</span>
         </div>
         <Button variant="ghost" onClick={login} className="text-primary hover:bg-primary/5">
-          Admin/Faculty Login
+          Admin Login
         </Button>
       </nav>
 
       <main className="flex-1 flex flex-col">
-        {/* Terminal Entrance Section */}
         <section className="flex-1 relative flex items-center justify-center p-6 bg-slate-50">
           <div className="absolute inset-0 z-0">
              {heroImage && (
@@ -85,49 +76,91 @@ export default function Home() {
           
           <div className="relative z-10 w-full max-w-lg">
             <Card className="border-none shadow-2xl overflow-hidden">
-              <div className="bg-primary p-8 text-white text-center">
-                <div className="h-20 w-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                  <Nfc className="h-10 w-10 text-white" />
-                </div>
-                <h1 className="text-3xl font-bold mb-2">Welcome to NEU Library</h1>
-                <p className="text-white/80">Tap your RFID ID or enter Student ID below</p>
-              </div>
-              <CardContent className="p-8 space-y-6">
-                <form onSubmit={handleIdSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-500 uppercase tracking-wider">Institutional ID</label>
-                    <Input 
-                      ref={idInputRef}
-                      placeholder="12-34567-890" 
-                      className="h-16 text-2xl text-center font-mono tracking-widest border-2 focus:border-primary transition-all"
-                      value={studentId}
-                      onChange={(e) => setStudentId(e.target.value)}
-                      autoFocus
-                    />
+              {pendingStudentId ? (
+                <div className="p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="text-center">
+                    <div className="h-16 w-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <LinkIcon className="h-8 w-8 text-accent" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-primary">Link Your Account</h2>
+                    <p className="text-muted-foreground mt-2">
+                      Student ID <span className="font-mono font-bold text-accent">{pendingStudentId}</span> detected for the first time.
+                    </p>
                   </div>
-                  <Button type="submit" className="w-full h-14 text-lg font-bold">
-                    PROCEED TO CHECK-IN
-                  </Button>
-                </form>
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-muted-foreground">Or access via</span>
+                  <Alert className="bg-slate-50 border-slate-200">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Registration Required</AlertTitle>
+                    <AlertDescription>
+                      Sign in with your official **@neu.edu.ph** Google account to link this ID permanently.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={login} 
+                      className="w-full h-14 text-lg gap-3 bg-primary hover:bg-primary/90"
+                    >
+                      <Image src="https://picsum.photos/seed/google/20/20" alt="G" width={20} height={20} className="rounded-full" />
+                      Link Institutional Account
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={cancelLinking} 
+                      className="w-full h-10 text-slate-500 gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Cancel and use another ID
+                    </Button>
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div className="bg-primary p-8 text-white text-center">
+                    <div className="h-20 w-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                      <Nfc className="h-10 w-10 text-white" />
+                    </div>
+                    <h1 className="text-3xl font-bold mb-2">Welcome to NEU Library</h1>
+                    <p className="text-white/80">Tap your RFID or enter Student ID below</p>
+                  </div>
+                  <CardContent className="p-8 space-y-6">
+                    <form onSubmit={handleIdSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-500 uppercase tracking-wider">Student ID</label>
+                        <Input 
+                          ref={idInputRef}
+                          placeholder="12-34567-890" 
+                          className="h-16 text-2xl text-center font-mono tracking-widest border-2 focus:border-primary transition-all"
+                          value={studentId}
+                          onChange={(e) => setStudentId(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <Button type="submit" className="w-full h-14 text-lg font-bold">
+                        PROCEED TO CHECK-IN
+                      </Button>
+                    </form>
 
-                <Button 
-                  variant="outline" 
-                  onClick={login} 
-                  className="w-full h-14 text-lg gap-2 border-2"
-                >
-                  <Image src="https://picsum.photos/seed/google/20/20" alt="G" width={20} height={20} className="rounded-full" />
-                  Institutional Google Account
-                </Button>
-              </CardContent>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-muted-foreground">Or access via</span>
+                      </div>
+                    </div>
+
+                    <Button 
+                      variant="outline" 
+                      onClick={login} 
+                      className="w-full h-14 text-lg gap-2 border-2"
+                    >
+                      <Image src="https://picsum.photos/seed/google/20/20" alt="G" width={20} height={20} className="rounded-full" />
+                      Institutional Google Account
+                    </Button>
+                  </CardContent>
+                </>
+              )}
             </Card>
             
             <p className="text-center mt-8 text-slate-400 text-sm flex items-center justify-center gap-2">

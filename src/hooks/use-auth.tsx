@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
@@ -22,8 +22,10 @@ interface AuthContextType {
   user: User | null;
   profile: any | null;
   loading: boolean;
+  pendingStudentId: string | null;
   login: () => Promise<void>;
   loginWithId: (studentId: string) => Promise<void>;
+  cancelLinking: () => void;
   logout: () => Promise<void>;
 }
 
@@ -31,8 +33,10 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  pendingStudentId: null,
   login: async () => {},
-  loginWithId: async () => {},
+  loginWithId: async (id: string) => {},
+  cancelLinking: () => {},
   logout: async () => {},
 });
 
@@ -40,6 +44,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingStudentId, setPendingStudentId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -52,7 +57,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             toast({
               variant: 'destructive',
               title: 'Invalid Institutional Email',
-              description: 'Access denied. You must use your official @neu.edu.ph institutional Google account to log in.',
+              description: 'Access denied. You must use your official @neu.edu.ph institutional Google account.',
             });
             setUser(null);
             setProfile(null);
@@ -71,13 +76,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             toast({
               variant: 'destructive',
               title: 'Access Blocked',
-              description: 'Your account has been blocked by an administrator. Please contact the library staff.',
+              description: 'Your account has been blocked by an administrator.',
             });
             setUser(null);
             setProfile(null);
             setLoading(false);
             return;
           }
+
+          // If we have a pendingStudentId, link it now
+          if (pendingStudentId) {
+            await updateDoc(userDocRef, {
+              studentId: pendingStudentId,
+              updatedAt: new Date().toISOString()
+            });
+            userData.studentId = pendingStudentId;
+            setPendingStudentId(null);
+            toast({
+              title: 'ID Linked!',
+              description: `Student ID ${pendingStudentId} is now linked to your account.`,
+            });
+          }
+
           setProfile(userData);
           setUser(firebaseUser);
         } else if (firebaseUser.providerData.length > 0) {
@@ -88,15 +108,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             displayName: firebaseUser.displayName,
             photoURL: firebaseUser.photoURL,
             role: 'student',
+            studentId: pendingStudentId || null,
             isBlocked: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
           await setDoc(userDocRef, newProfile);
+          setPendingStudentId(null);
           setProfile(newProfile);
           setUser(firebaseUser);
         } else {
-          // Anonymous user session
+          // Anonymous user session (already handled by loginWithId)
           setUser(firebaseUser);
         }
       } else {
@@ -107,7 +129,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [pendingStudentId]);
 
   const login = async () => {
     setLoading(true);
@@ -132,45 +154,50 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        throw new Error('Student ID not found. Please register or consult a librarian.');
+        // First time ID - trigger linking flow
+        setPendingStudentId(studentId);
+        toast({
+          title: 'New Student ID',
+          description: 'This ID is not registered. Please sign in with Google to link it.',
+        });
+        setLoading(false);
+        return;
       }
 
       const userData = querySnapshot.docs[0].data();
       if (userData.isBlocked) {
-        throw new Error('This Student ID is currently blocked from entering the library.');
+        throw new Error('This Student ID is currently blocked.');
       }
 
       // Sign in anonymously to create a session
       const cred = await signInAnonymously(auth);
       const sessionUser = cred.user;
 
-      // Link this anonymous session to the student profile
-      await setDoc(doc(db, 'users', sessionUser.uid), {
-        ...userData,
-        id: sessionUser.uid,
-        lastLogin: serverTimestamp(),
-      });
-
+      // Temporary session profile
       setProfile(userData);
       router.push('/dashboard/check-in');
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Terminal Login Failed',
+        title: 'Login Failed',
         description: error.message,
       });
-    } finally {
       setLoading(false);
     }
   };
 
+  const cancelLinking = () => {
+    setPendingStudentId(null);
+  };
+
   const logout = async () => {
     await signOut(auth);
+    setPendingStudentId(null);
     router.push('/');
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, loginWithId, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, pendingStudentId, login, loginWithId, cancelLinking, logout }}>
       {children}
     </AuthContext.Provider>
   );
