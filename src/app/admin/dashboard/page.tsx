@@ -23,6 +23,17 @@ const { firestore: db } = initializeFirebase();
 
 const CHART_COLORS = ['#003399', '#00A859', '#FFD54F', '#ED1C24', '#9EB2BF'];
 
+const DEPT_ABBREVIATIONS: Record<string, string> = {
+  "College of Arts and Sciences (CAS)": "CAS",
+  "College of Business Administration (CBA)": "CBA",
+  "College of Communication (COC)": "COC",
+  "College of Education (CED)": "CED",
+  "College of Engineering and Architecture (CEA)": "CEA",
+  "College of Informatics and Computing Studies (CICS)": "CICS",
+  "Medical & Health Sciences": "MHS",
+  "Specialized Colleges": "SC"
+};
+
 export default function AdminDashboardPage() {
   const { profile } = useAuth();
   const [visits, setVisits] = useState<any[]>([]);
@@ -121,7 +132,8 @@ export default function AdminDashboardPage() {
 
   const collegeStats = useMemo(() => {
     const stats = filteredVisits.reduce((acc: any, visit) => {
-      acc[visit.college] = (acc[visit.college] || 0) + 1;
+      const name = DEPT_ABBREVIATIONS[visit.college] || visit.college;
+      acc[name] = (acc[name] || 0) + 1;
       return acc;
     }, {});
     return Object.entries(stats).map(([name, value]) => ({ name, value }));
@@ -138,7 +150,12 @@ export default function AdminDashboardPage() {
   }, {});
 
   const topPurpose = Object.keys(purposeStats).sort((a, b) => purposeStats[b] - purposeStats[a])[0] || 'N/A';
-  const topCollege = collegeStats.sort((a: any, b: any) => b.value - a.value)[0]?.name || 'N/A';
+  const topCollege = filteredVisits.reduce((acc: any, visit) => {
+    acc[visit.college] = (acc[visit.college] || 0) + 1;
+    return acc;
+  }, {});
+  const topCollegeName = Object.keys(topCollege).sort((a, b) => topCollege[b] - topCollege[a])[0] || 'N/A';
+  
   const topProgram = Object.keys(programStats).sort((a, b) => programStats[b] - programStats[a])[0] || 'N/A';
 
   const generatePDF = () => {
@@ -146,7 +163,7 @@ export default function AdminDashboardPage() {
     const doc = new jsPDF();
     
     doc.setFontSize(22);
-    doc.setTextColor(57, 110, 173);
+    doc.setTextColor(0, 51, 153);
     doc.text("NEU Library Visitor Report", 14, 22);
     
     doc.setFontSize(11);
@@ -154,7 +171,7 @@ export default function AdminDashboardPage() {
     doc.text(`Generated on: ${format(new Date(), 'PPP p')}`, 14, 30);
     doc.text(`Timeframe: ${timeFilter.toUpperCase()}`, 14, 37);
     doc.text(`Total Visitors: ${filteredVisits.length}`, 14, 44);
-    doc.text(`Top Department: ${topCollege}`, 14, 51);
+    doc.text(`Top Department: ${topCollegeName}`, 14, 51);
 
     const tableData = filteredVisits.map(v => [
       v.userName,
@@ -168,7 +185,7 @@ export default function AdminDashboardPage() {
       startY: 60,
       head: [['Visitor Name', 'Department', 'Program', 'Purpose', 'Date & Time']],
       body: tableData,
-      headStyles: { fillColor: [57, 110, 173] },
+      headStyles: { fillColor: [0, 51, 153] },
       alternateRowStyles: { fillColor: [245, 247, 250] },
     });
 
@@ -179,7 +196,7 @@ export default function AdminDashboardPage() {
   if (profile?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md text-center p-8 border-none shadow-lg">
+        <Card className="w-full max-w-md text-center p-8 border-none shadow-lg bg-white">
           <CardTitle className="text-destructive mb-2">Access Denied</CardTitle>
           <CardDescription>You do not have administrative privileges to view this page.</CardDescription>
         </Card>
@@ -199,7 +216,7 @@ export default function AdminDashboardPage() {
         </div>
         <Button 
           variant="default" 
-          className="gap-2 shadow-lg" 
+          className="gap-2 shadow-lg bg-primary hover:bg-primary/90" 
           onClick={generatePDF} 
           disabled={isExporting || filteredVisits.length === 0}
         >
@@ -225,7 +242,7 @@ export default function AdminDashboardPage() {
               Top Department
             </CardDescription>
             <CardTitle className="text-lg font-bold truncate text-primary">
-              {topCollege}
+              {topCollegeName}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -257,7 +274,7 @@ export default function AdminDashboardPage() {
         <Card className="lg:col-span-8 border-none shadow-lg bg-white">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-[#003399]" />
+              <TrendingUp className="h-5 w-5 text-primary" />
               Visitor Traffic Trend
             </CardTitle>
             <CardDescription>Visualizing entries over the selected timeframe.</CardDescription>
@@ -294,7 +311,7 @@ export default function AdminDashboardPage() {
               <PieChartIcon className="h-5 w-5 text-[#00A859]" />
               Department Distribution
             </CardTitle>
-            <CardDescription>Breakdown by college department.</CardDescription>
+            <CardDescription>Breakdown by college (Abbreviated).</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] w-full pt-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -415,7 +432,7 @@ export default function AdminDashboardPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
-                            <Badge variant="outline" className="font-normal w-fit text-[10px] border-[#003399] text-[#003399]">{visit.college}</Badge>
+                            <Badge variant="outline" className="font-normal w-fit text-[10px] border-primary text-primary">{visit.college}</Badge>
                             <span className="text-xs text-muted-foreground italic line-clamp-1">{visit.program}</span>
                           </div>
                         </TableCell>
