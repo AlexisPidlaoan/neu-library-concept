@@ -18,7 +18,7 @@ const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 
 // Institutional Admin Emails - Hardcoded for absolute access
-const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph'];
+const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph', 'pampa4858@gmail.com'];
 
 interface AuthContextType {
   user: User | null;
@@ -59,8 +59,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isInstitutional = email?.endsWith('@neu.edu.ph');
           const isAdminEmail = !!(email && ADMIN_EMAILS.includes(email));
 
-          // 1. Domain Enforcement
-          if (isGoogleUser && !isInstitutional) {
+          // 1. Domain Enforcement (Bypass for Super Admins)
+          if (isGoogleUser && !isInstitutional && !isAdminEmail) {
             await signOut(auth);
             toast({
               variant: 'destructive',
@@ -99,7 +99,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 userData.role = 'admin';
               }
               // Ensure security marker exists for firestore.rules
-              // We don't await this to prevent blocking the login UI
               setDoc(adminDocRef, { active: true }, { merge: true }).catch(() => {});
             }
 
@@ -112,7 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             setProfile(userData);
           } else if (isGoogleUser) {
-            // Register New Institutional User
+            // Register New Institutional or Super Admin User
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,

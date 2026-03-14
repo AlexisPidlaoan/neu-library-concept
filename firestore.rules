@@ -16,6 +16,7 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "alexis.pidlaoan@neu.edu.ph" ||
+        request.auth.token.email == "pampa4858@gmail.com" ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -28,8 +29,8 @@ service cloud.firestore {
 
     match /admins/{userId} {
       allow get: if isSignedIn();
-      // Allow the specific super admin email to bootstrap the admin collection
-      allow create, update, delete: if isAdmin() || (isSignedIn() && request.auth.token.email == "alexis.pidlaoan@neu.edu.ph");
+      // Allow the specific super admin emails to bootstrap the admin collection
+      allow create, update, delete: if isAdmin() || (isSignedIn() && (request.auth.token.email == "alexis.pidlaoan@neu.edu.ph" || request.auth.token.email == "pampa4858@gmail.com"));
     }
 
     match /users/{userId} {
