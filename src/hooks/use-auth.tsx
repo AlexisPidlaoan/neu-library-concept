@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -18,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 
-// Institutional Admin Emails
+// Institutional Admin Emails - Hardcoded for absolute access
 const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph'];
 
 interface AuthContextType {
@@ -82,7 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           let userDoc = await getDoc(userDocRef);
 
           if (userDoc.exists()) {
-            let userData = { id: firebaseUser.uid, ...userDoc.data() };
+            let userData = { ...userDoc.data(), id: firebaseUser.uid };
             
             if (userData.isBlocked) {
               await signOut(auth);
@@ -100,10 +99,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 userData.role = 'admin';
               }
               // Ensure security marker exists for firestore.rules
-              const adminMarker = await getDoc(adminDocRef);
-              if (!adminMarker.exists()) {
-                await setDoc(adminDocRef, { active: true });
-              }
+              // We don't await this to prevent blocking the login UI
+              setDoc(adminDocRef, { active: true }, { merge: true }).catch(() => {});
             }
 
             // Handle linking if user was in terminal mode
@@ -141,7 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setProfile(null);
         }
       } catch (e) {
-        console.error("Auth Loop Error:", e);
+        console.error("Auth Hook Error:", e);
       } finally {
         setLoading(false);
       }

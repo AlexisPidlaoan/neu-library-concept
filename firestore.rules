@@ -12,20 +12,29 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Hardcoded Super Admin check to prevent lockouts
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "alexis.pidlaoan@neu.edu.ph" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSuperAdmin();
     }
 
     // --- Collection Rules ---
 
     match /admins/{userId} {
       allow get: if isSignedIn();
-      allow list, create, update, delete: if isAdmin();
+      // Allow the specific super admin email to bootstrap the admin collection
+      allow create, update, delete: if isAdmin() || (isSignedIn() && request.auth.token.email == "alexis.pidlaoan@neu.edu.ph");
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isSignedIn(); 
+      allow list: if isAdmin(); 
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -40,7 +49,7 @@ service cloud.firestore {
       // Allow create for any signed in user
       allow create: if isSignedIn();
       
-      // Allow read (get/list) if admin OR if the record belongs to the user (by ID or Email)
+      // Allow read (get/list) if admin OR if the record belongs to the user
       allow read: if isAdmin() || (
         isSignedIn() && (
           resource.data.userId == request.auth.uid || 
