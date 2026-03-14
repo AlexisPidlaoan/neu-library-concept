@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, doc, updateDoc, orderBy, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, orderBy, writeBatch } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -66,6 +66,7 @@ export default function UserManagementPage() {
       const now = new Date().toISOString();
 
       [...SAMPLE_STUDENTS, ...SAMPLE_ADMINS].forEach(u => {
+        // Create user profile
         const userRef = doc(db, 'users', u.id);
         batch.set(userRef, {
           ...u,
@@ -82,10 +83,10 @@ export default function UserManagementPage() {
       });
 
       await batch.commit();
-      toast({ title: 'Database Populated', description: 'Sample students and admins have been added.' });
+      toast({ title: 'Database Populated', description: 'Sample students and admins have been added successfully.' });
       fetchUsers();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Seed Failed' });
+      toast({ variant: 'destructive', title: 'Seed Failed', description: 'Ensure you have permissions.' });
     } finally {
       setIsSeeding(false);
     }
@@ -112,7 +113,7 @@ export default function UserManagementPage() {
       setUsers(users.map(u => u.id === user.id ? { ...u, isBlocked: newStatus } : u));
       toast({ title: newStatus ? 'User Blocked' : 'User Unblocked' });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error' });
+      toast({ variant: 'destructive', title: 'Error Updating Status' });
     } finally {
       setUpdatingId(null);
     }
@@ -129,9 +130,9 @@ export default function UserManagementPage() {
       await updateDoc(doc(db, 'users', userId), { studentId: editStudentId });
       setUsers(users.map(u => u.id === userId ? { ...u, studentId: editStudentId } : u));
       setEditingId(null);
-      toast({ title: 'ID Updated' });
+      toast({ title: 'Student ID Updated' });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error' });
+      toast({ variant: 'destructive', title: 'Error Updating ID' });
     }
   };
 
@@ -151,7 +152,7 @@ export default function UserManagementPage() {
             <Users className="h-8 w-8" />
             User Management
           </h1>
-          <p className="text-muted-foreground">Search and manage all registered user accounts.</p>
+          <p className="text-muted-foreground">Search and manage all registered accounts.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <Button 

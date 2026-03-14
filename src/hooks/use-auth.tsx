@@ -9,7 +9,7 @@ import {
   GoogleAuthProvider,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 
+// List of institutional emails that are automatically admins
 const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph'];
 
 interface AuthContextType {
@@ -54,6 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Enforce NEU email domain for Google logins
         if (firebaseUser.providerData.length > 0 && firebaseUser.providerData[0].providerId === 'google.com') {
           if (!firebaseUser.email?.endsWith('@neu.edu.ph')) {
             await signOut(auth);
@@ -79,24 +81,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (userDoc.exists()) {
             let userData = userDoc.data();
             
+            // Check if blocked
             if (userData.isBlocked) {
               await signOut(auth);
-              toast({ variant: 'destructive', title: 'Access Blocked' });
+              toast({ variant: 'destructive', title: 'Access Blocked', description: 'Your account is restricted.' });
               setUser(null);
               setProfile(null);
               setLoading(false);
               return;
             }
 
+            // Sync Admin privileges if email matches
             if (isAdminEmail) {
               if (userData.role !== 'admin') {
                 await updateDoc(userDocRef, { role: 'admin' });
                 userData.role = 'admin';
               }
-              // Sync to admins collection for security rules
+              // Important for Security Rules: ensure document exists in /admins
               await setDoc(adminDocRef, { active: true }, { merge: true });
             }
 
+            // Handle linking pending student ID from terminal
             if (pendingStudentId) {
               await updateDoc(userDocRef, {
                 studentId: pendingStudentId,
@@ -104,12 +109,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               });
               userData.studentId = pendingStudentId;
               setPendingStudentId(null);
-              toast({ title: 'ID Linked!' });
+              toast({ title: 'ID Linked Successfully!' });
             }
 
             setProfile(userData);
             setUser(firebaseUser);
           } else if (firebaseUser.providerData.length > 0) {
+            // First time login - create profile
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -129,6 +135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(newProfile);
             setUser(firebaseUser);
           } else {
+            // Anonymous session for terminal
             setUser(firebaseUser);
           }
         } catch (e: any) {
