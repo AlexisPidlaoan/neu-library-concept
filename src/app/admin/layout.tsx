@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -35,9 +34,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const adminItems = [
-    { label: 'Visitor Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-    { label: 'College Management', icon: BookMarked, href: '/admin/colleges' },
-    { label: 'User Management', icon: Users, href: '/admin/users' },
+    { label: 'Visitor Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', color: 'text-[#00A859]' },
+    { label: 'College Management', icon: BookMarked, href: '/admin/colleges', color: 'text-[#FFD54F]' },
+    { label: 'User Management', icon: Users, href: '/admin/users', color: 'text-[#ED1C24]' },
   ];
 
   // Only show Student View button if the admin is also a registered student
@@ -48,16 +47,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <Sidebar collapsible="icon" className="border-r shadow-sm">
         <SidebarHeader className="p-4">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shadow-lg">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Library</span>
+            <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Admin</span>
           </Link>
         </SidebarHeader>
         <SidebarContent className="px-2">
           <SidebarMenu>
             <div className="mb-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
-              Admin Panel
+              Management
             </div>
             {adminItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -67,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   tooltip={item.label}
                 >
                   <Link href={item.href} className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5" />
+                    <item.icon className={`h-5 w-5 ${item.color}`} />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -76,9 +75,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             {isAlsoStudent && (
               <div className="mt-4 px-4">
-                <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2">
+                <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2 border-primary/20 hover:bg-primary/5">
                   <Link href="/dashboard/check-in">
-                    <LogIn className="h-3 w-3" />
+                    <LogIn className="h-3 w-3 text-primary" />
                     Student View
                   </Link>
                 </Button>
@@ -90,9 +89,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent">
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 border border-primary/10">
                   <AvatarImage src={user.photoURL || ''} />
-                  <AvatarFallback className="bg-primary/10 text-primary uppercase">
+                  <AvatarFallback className="bg-primary text-white uppercase">
                     {user.displayName?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -108,12 +107,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {isAlsoStudent && (
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/check-in" className="cursor-pointer">
-                    <LogIn className="mr-2 h-4 w-4" />
+                    <LogIn className="mr-2 h-4 w-4 text-primary" />
                     Student Check-in
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
+              <DropdownMenuItem onClick={logout} className="text-[#ED1C24] cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>
@@ -121,19 +120,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </DropdownMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
-        <header className="h-16 border-b flex items-center px-6 sticky top-0 bg-white/80 backdrop-blur-md z-40 justify-between">
+      <SidebarInset className="bg-background">
+        <header className="h-16 border-b flex items-center px-6 sticky top-0 bg-primary text-white z-40 justify-between shadow-md">
           <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <div className="h-4 w-[1px] bg-border hidden md:block" />
+            <SidebarTrigger className="text-white hover:bg-white/10" />
+            <div className="h-4 w-[1px] bg-white/20 hidden md:block" />
             <h2 className="font-semibold text-lg hidden md:block">
-              Administration
+              Administrative Services
             </h2>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium">{profile?.displayName}</p>
-              <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
+              <p className="text-xs text-white/70 capitalize">{profile?.role}</p>
             </div>
           </div>
         </header>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -33,8 +32,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isAdmin = profile?.role === 'admin';
 
   const menuItems = [
-    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in' },
-    { label: 'My History', icon: History, href: '/dashboard/history' },
+    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-[#00A859]' },
+    { label: 'My History', icon: History, href: '/dashboard/history', color: 'text-[#FFD54F]' },
   ];
 
   return (
@@ -42,8 +41,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar collapsible="icon" className="border-r shadow-sm">
         <SidebarHeader className="p-4">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-white" />
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shadow-lg">
+              < GraduationCap className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Library</span>
           </Link>
@@ -51,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarContent className="px-2">
           <SidebarMenu>
             <div className="mb-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
-              Student Panel
+              Student Hub
             </div>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -61,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   tooltip={item.label}
                 >
                   <Link href={item.href} className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5" />
+                    <item.icon className={`h-5 w-5 ${item.color}`} />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -70,9 +69,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {isAdmin && (
               <div className="mt-4 px-4">
-                <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2">
+                <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2 border-primary/20 hover:bg-primary/5">
                   <Link href="/admin/dashboard">
-                    <LayoutDashboard className="h-3 w-3" />
+                    <LayoutDashboard className="h-3 w-3 text-primary" />
                     Admin View
                   </Link>
                 </Button>
@@ -84,9 +83,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent">
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 border border-primary/10">
                   <AvatarImage src={user.photoURL || ''} />
-                  <AvatarFallback className="bg-primary/10 text-primary uppercase">
+                  <AvatarFallback className="bg-primary text-white uppercase">
                     {user.displayName?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -102,12 +101,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {isAdmin && (
                 <DropdownMenuItem asChild>
                   <Link href="/admin/dashboard" className="cursor-pointer">
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
                     Admin Dashboard
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
+              <DropdownMenuItem onClick={logout} className="text-[#ED1C24] cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>
@@ -115,11 +114,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DropdownMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
-        <header className="h-16 border-b flex items-center px-6 sticky top-0 bg-white/80 backdrop-blur-md z-40 justify-between">
+      <SidebarInset className="bg-background">
+        <header className="h-16 border-b flex items-center px-6 sticky top-0 bg-primary text-white z-40 justify-between shadow-md">
           <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <div className="h-4 w-[1px] bg-border hidden md:block" />
+            <SidebarTrigger className="text-white hover:bg-white/10" />
+            <div className="h-4 w-[1px] bg-white/20 hidden md:block" />
             <h2 className="font-semibold text-lg hidden md:block">
               Library Dashboard
             </h2>
@@ -127,7 +126,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium">{profile?.displayName}</p>
-              <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
+              <p className="text-xs text-white/70 capitalize">{profile?.role}</p>
             </div>
           </div>
         </header>

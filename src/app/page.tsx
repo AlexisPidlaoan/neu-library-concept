@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -70,51 +69,52 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <nav className="border-b bg-white px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+    <div className="min-h-screen flex flex-col bg-background">
+      <nav className="border-b bg-primary px-6 py-4 flex justify-between items-center sticky top-0 z-50">
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <GraduationCap className="h-8 w-8 text-primary" />
-          <span className="font-bold text-2xl tracking-tight text-primary">NEU Library</span>
+          <GraduationCap className="h-8 w-8 text-white" />
+          <span className="font-bold text-2xl tracking-tight text-white">NEU Library</span>
         </Link>
-        <Button variant="ghost" onClick={login} className="text-primary hover:bg-primary/5">
+        <Button variant="ghost" onClick={login} className="text-white hover:bg-white/10">
           Admin Login
         </Button>
       </nav>
 
       <main className="flex-1 flex flex-col">
-        <section className="flex-1 relative flex items-center justify-center p-6 bg-slate-50">
-          <div className="absolute inset-0 z-0">
+        <section className="flex-1 relative flex items-center justify-center p-6">
+          <div className="absolute inset-0 z-0 overflow-hidden">
              {heroImage && (
               <Image 
                 src={heroImage.imageUrl} 
                 alt={heroImage.description} 
                 fill 
-                className="object-cover opacity-40"
+                className="object-cover opacity-60"
                 priority
                 data-ai-hint={heroImage.imageHint}
               />
             )}
+            <div className="absolute inset-0 bg-background/40" />
           </div>
           
           <div className="relative z-10 w-full max-w-lg">
-            <Card className="border-none shadow-2xl overflow-hidden">
+            <Card className="border-none shadow-2xl overflow-hidden bg-white/95 backdrop-blur-sm">
               {pendingStudentId ? (
                 <div className="p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4">
                   <div className="text-center">
-                    <div className="h-16 w-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <LinkIcon className="h-8 w-8 text-accent" />
+                    <div className="h-16 w-16 bg-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <LinkIcon className="h-8 w-8 text-primary" />
                     </div>
                     <h2 className="text-2xl font-bold text-primary">Link Your Account</h2>
                     <p className="text-muted-foreground mt-2">
-                      Student ID <span className="font-mono font-bold text-accent">{pendingStudentId}</span> detected for the first time.
+                      Student ID <span className="font-mono font-bold text-[#ED1C24]">{pendingStudentId}</span> detected.
                     </p>
                   </div>
 
-                  <Alert className="bg-slate-50 border-slate-200">
-                    <AlertCircle className="h-4 w-4" />
+                  <Alert className="bg-slate-50 border-primary/20">
+                    <AlertCircle className="h-4 w-4 text-primary" />
                     <AlertTitle>Registration Required</AlertTitle>
                     <AlertDescription>
-                      Sign in with your official **@neu.edu.ph** Google account to link this ID permanently.
+                      Sign in with your official **@neu.edu.ph** Google account.
                     </AlertDescription>
                   </Alert>
 
@@ -153,20 +153,20 @@ export default function Home() {
                           ref={idInputRef}
                           placeholder="12-34567-890" 
                           maxLength={12}
-                          className="h-16 text-2xl text-center font-mono tracking-widest border-2 focus:border-primary transition-all"
+                          className="h-16 text-2xl text-center font-mono tracking-widest border-2 border-primary/20 focus:border-primary transition-all"
                           value={studentId}
                           onChange={handleIdChange}
                           autoFocus
                         />
                       </div>
-                      <Button type="submit" className="w-full h-14 text-lg font-bold">
+                      <Button type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90">
                         PROCEED TO CHECK-IN
                       </Button>
                     </form>
 
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
+                        <span className="w-full border-t border-slate-200" />
                       </div>
                       <div className="relative flex justify-center text-xs uppercase">
                         <span className="bg-white px-2 text-muted-foreground">Or access via</span>
@@ -176,7 +176,7 @@ export default function Home() {
                     <Button 
                       variant="outline" 
                       onClick={login} 
-                      className="w-full h-14 text-lg gap-2 border-2"
+                      className="w-full h-14 text-lg gap-2 border-2 border-primary/10 hover:bg-primary/5"
                     >
                       <Image src="https://picsum.photos/seed/google/20/20" alt="G" width={20} height={20} className="rounded-full" />
                       Institutional Google Account
@@ -186,18 +186,18 @@ export default function Home() {
               )}
             </Card>
             
-            <p className="text-center mt-8 text-slate-400 text-sm flex items-center justify-center gap-2">
-              <ShieldCheck className="h-4 w-4" />
+            <p className="text-center mt-8 text-slate-600 font-medium text-sm flex items-center justify-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-[#00A859]" />
               Strictly for NEU Students and Personnel
             </p>
           </div>
         </section>
       </main>
 
-      <footer className="bg-slate-900 text-slate-400 py-8 px-6 border-t border-slate-800">
+      <footer className="bg-primary text-white/70 py-6 px-6 border-t border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <GraduationCap className="h-5 w-5 text-primary" />
+            <GraduationCap className="h-5 w-5 text-[#FFD54F]" />
             <span className="font-bold text-white">NEU Library</span>
           </div>
           <p className="text-xs">© {new Date().getFullYear()} New Era University Library. Terminal #001</p>
