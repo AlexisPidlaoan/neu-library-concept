@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { suggestPurpose } from '@/ai/flows/smart-purpose-suggester';
 import { initializeFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Loader2, Sparkles, BookOpen, User as UserIcon, Keyboard, School } from 'lucide-react';
+import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -88,13 +87,12 @@ const COMMON_PURPOSES = [
 ];
 
 export default function CheckInPage() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const [purposeSelection, setPurposeSelection] = useState('');
   const [customPurpose, setCustomPurpose] = useState('');
   const [college, setCollege] = useState('');
   const [program, setProgram] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -109,19 +107,6 @@ export default function CheckInPage() {
   useEffect(() => {
     setProgram('');
   }, [college]);
-
-  useEffect(() => {
-    const fetchSuggestions = async () => {
-      if (isCustomPurpose && (customPurpose.length >= 2 || customPurpose.length === 0)) {
-        const result = await suggestPurpose({ partialPurpose: customPurpose });
-        setSuggestions(result.suggestions);
-      } else {
-        setSuggestions([]);
-      }
-    };
-    const debounce = setTimeout(fetchSuggestions, 500);
-    return () => clearTimeout(debounce);
-  }, [customPurpose, isCustomPurpose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +132,21 @@ export default function CheckInPage() {
     };
 
     addDoc(collection(db, 'visits'), visitData)
+      .then(() => {
+        setShowSuccess(true);
+        setPurposeSelection('');
+        setCustomPurpose('');
+        setCollege('');
+        setProgram('');
+        setIsSubmitting(false);
+
+        toast({
+          title: 'Welcome to NEU Library!',
+          description: 'Your visit has been recorded successfully.',
+        });
+
+        setTimeout(() => setShowSuccess(false), 3000);
+      })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
           path: 'visits',
@@ -154,21 +154,8 @@ export default function CheckInPage() {
           requestResourceData: visitData,
         });
         errorEmitter.emit('permission-error', permissionError);
+        setIsSubmitting(false);
       });
-
-    setShowSuccess(true);
-    setPurposeSelection('');
-    setCustomPurpose('');
-    setCollege('');
-    setProgram('');
-    setIsSubmitting(false);
-
-    toast({
-      title: 'Welcome to NEU Library!',
-      description: 'Your visit has been recorded successfully.',
-    });
-
-    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   return (
@@ -275,42 +262,18 @@ export default function CheckInPage() {
 
                 {isCustomPurpose && (
                   <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="custom-purpose" className="text-xs font-semibold text-primary flex items-center gap-1">
-                        <Keyboard className="h-3 w-3" />
-                        Custom Purpose
-                      </Label>
-                      <div className="flex items-center gap-1 text-[10px] text-accent font-bold uppercase tracking-wider">
-                        <Sparkles className="h-3 w-3" />
-                        AI Suggester
-                      </div>
-                    </div>
+                    <Label htmlFor="custom-purpose" className="text-xs font-semibold text-primary flex items-center gap-1">
+                      <Keyboard className="h-3 w-3" />
+                      Custom Purpose
+                    </Label>
                     <Input
                       id="custom-purpose"
                       placeholder="e.g., Thesis Research..."
                       value={customPurpose}
                       onChange={(e) => setCustomPurpose(e.target.value)}
                       autoComplete="off"
-                      className="h-12 border-2 border-accent/20 focus:border-accent"
+                      className="h-12 border-2 border-primary/20 focus:border-primary"
                     />
-                    
-                    {suggestions.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {suggestions.map((suggestion, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              setCustomPurpose(suggestion);
-                              setSuggestions([]);
-                            }}
-                            className="text-[11px] px-3 py-1.5 bg-slate-100 hover:bg-accent/10 hover:text-accent border rounded-full transition-all duration-200"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
