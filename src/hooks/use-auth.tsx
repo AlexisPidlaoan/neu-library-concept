@@ -79,7 +79,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email);
 
           if (userDoc.exists()) {
-            // CRITICAL FIX: Ensure the document ID is included in the profile data
             let userData = { id: firebaseUser.uid, ...userDoc.data() };
             
             if (userData.isBlocked) {
@@ -90,8 +89,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               return;
             }
 
-            // Sync Admin privileges
-            if (isAdminEmail && userData.role !== 'admin') {
+            // Sync Admin privileges markers for security rules
+            const adminMarker = await getDoc(adminDocRef);
+            if (isAdminEmail && (!adminMarker.exists() || userData.role !== 'admin')) {
               await updateDoc(userDocRef, { role: 'admin' });
               userData.role = 'admin';
               await setDoc(adminDocRef, { active: true }, { merge: true });

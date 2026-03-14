@@ -17,6 +17,8 @@ import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const { firestore: db } = initializeFirebase();
 
@@ -32,9 +34,17 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!profile || profile.role !== 'admin') return;
+      
       setLoading(true);
       try {
-        const collegeSnap = await getDocs(collection(db, 'colleges'));
+        const collegeSnap = await getDocs(collection(db, 'colleges')).catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'colleges',
+            operation: 'list'
+          }));
+          throw err;
+        });
         setColleges(collegeSnap.docs.map(doc => doc.data().name));
 
         let q = query(collection(db, 'visits'), orderBy('timestamp', 'desc'));
@@ -48,7 +58,14 @@ export default function AdminDashboardPage() {
           q = query(q, where('timestamp', '>=', Timestamp.fromDate(startOfMonth(now))));
         }
 
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await getDocs(q).catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'visits',
+            operation: 'list'
+          }));
+          throw err;
+        });
+
         const fetchedVisits = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -56,24 +73,26 @@ export default function AdminDashboardPage() {
         }));
         setVisits(fetchedVisits);
       } catch (error) {
-        console.error('Error fetching admin dashboard data:', error);
+        // Errors are handled by the emitter
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, [timeFilter]);
+  }, [timeFilter, profile]);
 
-  const filteredVisits = visits.filter(visit => {
-    const searchLow = searchTerm.toLowerCase();
-    const matchesSearch = 
-      (visit.userName?.toLowerCase() || "").includes(searchLow) ||
-      (visit.userEmail?.toLowerCase() || "").includes(searchLow) ||
-      (visit.program?.toLowerCase() || "").includes(searchLow) ||
-      (visit.purpose?.toLowerCase() || "").includes(searchLow);
-    const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
-    return matchesSearch && matchesCollege;
-  });
+  const filteredVisits = useMemo(() => {
+    return visits.filter(visit => {
+      const searchLow = searchTerm.toLowerCase();
+      const matchesSearch = 
+        (visit.userName?.toLowerCase() || "").includes(searchLow) ||
+        (visit.userEmail?.toLowerCase() || "").includes(searchLow) ||
+        (visit.program?.toLowerCase() || "").includes(searchLow) ||
+        (visit.purpose?.toLowerCase() || "").includes(searchLow);
+      const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
+      return matchesSearch && matchesCollege;
+    });
+  }, [visits, searchTerm, collegeFilter]);
 
   const trendData = useMemo(() => {
     const now = new Date();
@@ -83,6 +102,8 @@ export default function AdminDashboardPage() {
       interval = { start: startOfDay(now), end: endOfDay(now) };
     } else if (timeFilter === 'week') {
       interval = { start: startOfWeek(now), end: now };
+    } else if (timeFilter === 'month') {
+      interval = { start: startOfMonth(now), end: now };
     } else {
       interval = { start: startOfMonth(now), end: now };
     }
