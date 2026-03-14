@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -26,11 +25,34 @@ export default function Home() {
     }
   }, [profile, loading, router, pendingStudentId]);
 
+  const formatStudentId = (value: string) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, "");
+    
+    // Max 10 digits allowed (2-5-3)
+    const truncated = digits.slice(0, 10);
+    
+    // Apply mask: XX-XXXXX-XXX
+    let formatted = truncated;
+    if (truncated.length > 2) {
+      formatted = `${truncated.slice(0, 2)}-${truncated.slice(2)}`;
+    }
+    if (truncated.length > 7) {
+      formatted = `${truncated.slice(0, 2)}-${truncated.slice(2, 7)}-${truncated.slice(7)}`;
+    }
+    
+    return formatted;
+  };
+
+  const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setStudentId(formatStudentId(e.target.value));
+  };
+
   const handleIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const idPattern = /^\d{2}-\d{5}-\d{3}$/;
     if (!idPattern.test(studentId)) {
-      alert('Please enter ID in format: 12-34567-890');
+      alert('Please enter a valid Student ID: 12-34567-890');
       return;
     }
     loginWithId(studentId);
@@ -130,9 +152,10 @@ export default function Home() {
                         <Input 
                           ref={idInputRef}
                           placeholder="12-34567-890" 
+                          maxLength={12}
                           className="h-16 text-2xl text-center font-mono tracking-widest border-2 focus:border-primary transition-all"
                           value={studentId}
-                          onChange={(e) => setStudentId(e.target.value)}
+                          onChange={handleIdChange}
                           autoFocus
                         />
                       </div>

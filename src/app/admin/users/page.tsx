@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useEffect, useState } from 'react';
@@ -42,6 +41,23 @@ export default function UserManagementPage() {
     }
   }
 
+  const formatStudentId = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    const truncated = digits.slice(0, 10);
+    let formatted = truncated;
+    if (truncated.length > 2) {
+      formatted = `${truncated.slice(0, 2)}-${truncated.slice(2)}`;
+    }
+    if (truncated.length > 7) {
+      formatted = `${truncated.slice(0, 2)}-${truncated.slice(2, 7)}-${truncated.slice(7)}`;
+    }
+    return formatted;
+  };
+
+  const handleEditIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditStudentId(formatStudentId(e.target.value));
+  };
+
   const toggleBlockStatus = async (user: any) => {
     setUpdatingId(user.id);
     try {
@@ -60,6 +76,12 @@ export default function UserManagementPage() {
   };
 
   const handleUpdateStudentId = async (userId: string) => {
+    const idPattern = /^\d{2}-\d{5}-\d{3}$/;
+    if (editStudentId && !idPattern.test(editStudentId)) {
+      toast({ variant: 'destructive', title: 'Invalid Format', description: 'Please use 12-34567-890 format.' });
+      return;
+    }
+
     try {
       await updateDoc(doc(db, 'users', userId), { studentId: editStudentId });
       setUsers(users.map(u => u.id === userId ? { ...u, studentId: editStudentId } : u));
@@ -106,7 +128,7 @@ export default function UserManagementPage() {
               <TableRow>
                 <TableHead className="w-[80px]"></TableHead>
                 <TableHead>User Details</TableHead>
-                <TableHead>Student/Emp ID</TableHead>
+                <TableHead>Student ID</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Access Control</TableHead>
@@ -140,7 +162,8 @@ export default function UserManagementPage() {
                           <Input 
                             className="h-8 w-32 text-xs" 
                             value={editStudentId} 
-                            onChange={(e) => setEditStudentId(e.target.value)}
+                            onChange={handleEditIdChange}
+                            maxLength={12}
                             placeholder="12-34567-890"
                           />
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-success" onClick={() => handleUpdateStudentId(user.id)}>
