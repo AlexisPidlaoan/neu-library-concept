@@ -14,8 +14,6 @@ import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limi
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
@@ -55,10 +53,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Enforce NEU email domain for Google logins
-        if (firebaseUser.providerData.length > 0 && firebaseUser.providerData[0].providerId === 'google.com') {
-          if (!firebaseUser.email?.endsWith('@neu.edu.ph')) {
+      try {
+        if (firebaseUser) {
+          // Enforce NEU email domain for Google logins
+          const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com');
+          if (isGoogleUser && firebaseUser.email && !firebaseUser.email.endsWith('@neu.edu.ph')) {
             await signOut(auth);
             toast({
               variant: 'destructive',
@@ -67,41 +66,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             });
             setUser(null);
             setProfile(null);
-            setLoading(false);
             return;
           }
-        }
 
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const adminDocRef = doc(db, 'admins', firebaseUser.uid);
-        
-        try {
+          setUser(firebaseUser);
+
+          // Attempt to fetch profile
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const adminDocRef = doc(db, 'admins', firebaseUser.uid);
+          
           const userDoc = await getDoc(userDocRef);
           const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email);
 
           if (userDoc.exists()) {
             let userData = userDoc.data();
             
-            // Check if blocked
             if (userData.isBlocked) {
               await signOut(auth);
               toast({ variant: 'destructive', title: 'Access Blocked', description: 'Your account is restricted.' });
               setUser(null);
               setProfile(null);
-              setLoading(false);
               return;
             }
 
-            // Sync Admin privileges if email matches
-            if (isAdminEmail) {
-              if (userData.role !== 'admin') {
-                await updateDoc(userDocRef, { role: 'admin' });
-                userData.role = 'admin';
-              }
+            // Sync Admin privileges
+            if (isAdminEmail && userData.role !== 'admin') {
+              await updateDoc(userDocRef, { role: 'admin' });
+              userData.role = 'admin';
               await setDoc(adminDocRef, { active: true }, { merge: true });
             }
 
-            // Handle linking pending student ID from terminal
+            // Handle linking pending student ID
             if (pendingStudentId) {
               await updateDoc(userDocRef, {
                 studentId: pendingStudentId,
@@ -113,8 +108,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
 
             setProfile(userData);
-            setUser(firebaseUser);
-          } else if (firebaseUser.providerData.length > 0) {
+          } else if (isGoogleUser) {
+            // Create new profile for Google users
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -132,18 +127,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
             setPendingStudentId(null);
             setProfile(newProfile);
-            setUser(firebaseUser);
-          } else {
-            setUser(firebaseUser);
           }
-        } catch (e: any) {
-          console.error("Auth error:", e);
+        } else {
+          setUser(null);
+          setProfile(null);
         }
-      } else {
-        setUser(null);
-        setProfile(null);
+      } catch (e: any) {
+        console.error("Auth sync error:", e);
+        // We don't sign out here so the user can at least see the guest UI or retry
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -155,7 +149,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Login Error', description: error.message });
-    } finally {
       setLoading(false);
     }
   };
