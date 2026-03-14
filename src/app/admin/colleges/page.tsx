@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { db } from '@/lib/firebase';
+import { initializeFirebase } from '@/firebase';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { School, Plus, Trash2, Edit2, Loader2, Save, X } from 'lucide-react';
+
+const { firestore: db } = initializeFirebase();
 
 export default function CollegesManagementPage() {
   const { profile } = useAuth();
@@ -44,25 +47,25 @@ export default function CollegesManagementPage() {
     
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'colleges'), { name: newCollege.trim() });
+      await addDoc(collection(db, 'colleges'), { name: newCollege.trim(), createdAt: new Date().toISOString() });
       setNewCollege('');
       fetchColleges();
-      toast({ title: 'College Added', description: `${newCollege} has been added to the system.` });
+      toast({ title: 'Department Added', description: `${newCollege} has been added to the system.` });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add college.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add department.' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this college?')) return;
+    if (!confirm('Are you sure you want to delete this department?')) return;
     try {
       await deleteDoc(doc(db, 'colleges', id));
       fetchColleges();
-      toast({ title: 'College Deleted' });
+      toast({ title: 'Department Deleted' });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete college.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete department.' });
     }
   };
 
@@ -77,9 +80,9 @@ export default function CollegesManagementPage() {
       await updateDoc(doc(db, 'colleges', editingId), { name: editingValue.trim() });
       setEditingId(null);
       fetchColleges();
-      toast({ title: 'College Updated' });
+      toast({ title: 'Department Updated' });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update college.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update department.' });
     }
   };
 
@@ -90,23 +93,24 @@ export default function CollegesManagementPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-2">
           <School className="h-8 w-8" />
-          College Management
+          College Department Management
         </h1>
-        <p className="text-muted-foreground">Add, edit or remove colleges used in the check-in form.</p>
+        <p className="text-muted-foreground">Add, edit or remove departments used in the library check-in form.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card className="md:col-span-1 h-fit border-none shadow-lg">
           <form onSubmit={handleAddCollege}>
             <CardHeader>
-              <CardTitle className="text-lg">Add New College</CardTitle>
+              <CardTitle className="text-lg">Add New Department</CardTitle>
+              <CardDescription>e.g., College of Arts and Sciences (CAS)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="collegeName">Name</Label>
+                <Label htmlFor="collegeName">Department Name</Label>
                 <Input 
                   id="collegeName" 
-                  placeholder="e.g., College of Arts" 
+                  placeholder="Enter department name" 
                   value={newCollege}
                   onChange={(e) => setNewCollege(e.target.value)}
                 />
@@ -115,7 +119,7 @@ export default function CollegesManagementPage() {
             <CardFooter>
               <Button className="w-full" disabled={isSubmitting || !newCollege.trim()}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                Add College
+                Add Department
               </Button>
             </CardFooter>
           </form>
@@ -123,13 +127,13 @@ export default function CollegesManagementPage() {
 
         <Card className="md:col-span-2 border-none shadow-lg">
           <CardHeader>
-            <CardTitle className="text-lg">Existing Colleges</CardTitle>
+            <CardTitle className="text-lg">Existing Departments</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
+                  <TableHead>Department Name</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -182,7 +186,7 @@ export default function CollegesManagementPage() {
                 {colleges.length === 0 && !loading && (
                   <TableRow>
                     <TableCell colSpan={2} className="text-center h-24 text-muted-foreground">
-                      No colleges added yet.
+                      No departments added yet.
                     </TableCell>
                   </TableRow>
                 )}

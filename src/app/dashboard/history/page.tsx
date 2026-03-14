@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState } from 'react';
@@ -76,7 +77,7 @@ export default function HistoryPage() {
                 <TableRow>
                   <TableHead className="w-[180px]">Date & Time</TableHead>
                   <TableHead>Purpose</TableHead>
-                  <TableHead>College</TableHead>
+                  <TableHead>Department</TableHead>
                   <TableHead className="text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>

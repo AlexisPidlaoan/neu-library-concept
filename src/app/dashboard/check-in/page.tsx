@@ -67,7 +67,7 @@ export default function CheckInPage() {
       toast({
         variant: 'destructive',
         title: 'Missing information',
-        description: 'Please select a college and specify your purpose of visit.'
+        description: 'Please select a college department and specify your purpose of visit.'
       });
       return;
     }
@@ -166,21 +166,21 @@ export default function CheckInPage() {
                 <BookOpen className="h-5 w-5 text-primary" />
                 Entry Information
               </CardTitle>
-              <CardDescription>Select your college/office and purpose of visit.</CardDescription>
+              <CardDescription>Select your college department and purpose of visit.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="college">College / Office</Label>
+                <Label htmlFor="college">College Department</Label>
                 <Select value={college} onValueChange={setCollege} disabled={isLoadingColleges}>
                   <SelectTrigger id="college" className="h-12">
-                    <SelectValue placeholder={isLoadingColleges ? "Loading data..." : "Select College/Office"} />
+                    <SelectValue placeholder={isLoadingColleges ? "Loading data..." : "Select College Department"} />
                   </SelectTrigger>
                   <SelectContent>
                     {colleges.map((c) => (
                       <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                     ))}
                     {colleges.length === 0 && !isLoadingColleges && (
-                      <SelectItem value="Other" disabled>No colleges found</SelectItem>
+                      <SelectItem value="Other" disabled>No departments found</SelectItem>
                     )}
                   </SelectContent>
                 </Select>

@@ -98,7 +98,7 @@ export default function AdminDashboardPage() {
 
     autoTable(doc, {
       startY: 50,
-      head: [['Visitor Name', 'College', 'Purpose', 'Date & Time']],
+      head: [['Visitor Name', 'Department', 'Purpose', 'Date & Time']],
       body: tableData,
     });
 
@@ -125,7 +125,7 @@ export default function AdminDashboardPage() {
             <LayoutDashboard className="h-8 w-8" />
             Visitor Dashboard
           </h1>
-          <p className="text-muted-foreground">Monitor and manage library visits across all colleges.</p>
+          <p className="text-muted-foreground">Monitor and manage library visits across all departments.</p>
         </div>
         <Button 
           variant="outline" 
@@ -155,7 +155,7 @@ export default function AdminDashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <School className="h-4 w-4" />
-              Top College
+              Top Department
             </CardDescription>
             <CardTitle className="text-2xl font-bold truncate">
               {Object.keys(collegeStats).sort((a, b) => collegeStats[b] - collegeStats[a])[0] || 'N/A'}
@@ -205,10 +205,10 @@ export default function AdminDashboardPage() {
               </Select>
               <Select value={collegeFilter} onValueChange={setCollegeFilter}>
                 <SelectTrigger className="w-[180px] bg-white">
-                  <SelectValue placeholder="All Colleges" />
+                  <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Colleges</SelectItem>
+                  <SelectItem value="all">All Departments</SelectItem>
                   {colleges.map(c => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
@@ -223,7 +223,7 @@ export default function AdminDashboardPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Visitor</TableHead>
-                  <TableHead>College</TableHead>
+                  <TableHead>Department</TableHead>
                   <TableHead>Purpose</TableHead>
                   <TableHead>Logged At</TableHead>
                 </TableRow>
