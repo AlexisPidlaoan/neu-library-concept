@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -32,8 +33,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isAdmin = profile?.role === 'admin';
 
   const menuItems = [
-    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-[#00A859]' },
-    { label: 'My History', icon: History, href: '/dashboard/history', color: 'text-[#FFD54F]' },
+    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-[#00A859]' }, // Green
+    { label: 'My History', icon: History, href: '/dashboard/history', color: 'text-[#FFD54F]' }, // Yellow
   ];
 
   return (

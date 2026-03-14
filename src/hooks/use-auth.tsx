@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -160,10 +161,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [pendingStudentId, toast, profile]);
 
   const login = async () => {
-    setLoading(true);
+    // CRITICAL: Call signInWithPopup as the first action to prevent browser popup blocking.
+    // Avoid await calls or state updates before this call whenever possible.
     isTerminalSession.current = false;
     try {
       await signInWithPopup(auth, googleProvider);
+      // setLoading is not strictly needed here as onAuthStateChanged handles the transition
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({ variant: 'destructive', title: 'Login Error', description: error.message });
@@ -175,17 +178,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithId = async (studentId: string) => {
     setLoading(true);
     try {
-      // 1. Ensure we are signed in (at least anonymously) to perform the query
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
 
-      // 2. Search for the student ID in the users collection
       const q = query(collection(db, 'users'), where('studentId', '==', studentId), limit(1));
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        // First time student ID - needs linking
         setPendingStudentId(studentId);
         isTerminalSession.current = false;
         toast({ title: 'Registration Required', description: 'Student ID not found. Please link it with your Google account.' });
@@ -193,14 +193,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      // 3. Success - Student found
       const foundUser = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
       
       if (foundUser.isBlocked) {
         throw new Error('This Student ID is currently restricted.');
       }
 
-      // Mark this as a terminal session and set the profile
       isTerminalSession.current = true;
       setProfile(foundUser);
       router.push('/dashboard/check-in');

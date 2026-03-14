@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -34,9 +35,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const adminItems = [
-    { label: 'Visitor Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', color: 'text-[#00A859]' },
-    { label: 'College Management', icon: BookMarked, href: '/admin/colleges', color: 'text-[#FFD54F]' },
-    { label: 'User Management', icon: Users, href: '/admin/users', color: 'text-[#ED1C24]' },
+    { label: 'Visitor Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', color: 'text-[#00A859]' }, // Green
+    { label: 'College Management', icon: BookMarked, href: '/admin/colleges', color: 'text-[#FFD54F]' }, // Yellow
+    { label: 'User Management', icon: Users, href: '/admin/users', color: 'text-[#ED1C24]' }, // Red
   ];
 
   // Only show Student View button if the admin is also a registered student

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -88,12 +89,12 @@ export default function Home() {
                 src={heroImage.imageUrl} 
                 alt={heroImage.description} 
                 fill 
-                className="object-cover opacity-60"
+                className="object-cover opacity-80"
                 priority
                 data-ai-hint={heroImage.imageHint}
               />
             )}
-            <div className="absolute inset-0 bg-background/40" />
+            <div className="absolute inset-0 bg-primary/10 backdrop-blur-[2px]" />
           </div>
           
           <div className="relative z-10 w-full max-w-lg">
