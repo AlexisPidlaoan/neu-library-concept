@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School } from 'lucide-react';
+import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -140,12 +140,8 @@ export default function CheckInPage() {
         setProgram('');
         setIsSubmitting(false);
 
-        toast({
-          title: 'Welcome to NEU Library!',
-          description: 'Your visit has been recorded successfully.',
-        });
-
-        setTimeout(() => setShowSuccess(false), 3000);
+        // Hide notification after 5 seconds
+        setTimeout(() => setShowSuccess(false), 5000);
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -161,10 +157,24 @@ export default function CheckInPage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 relative">
       {showSuccess && (
-        <div className="fixed bottom-10 right-10 z-[100] animate-in fade-in zoom-in slide-in-from-bottom-10 duration-700">
-          <div className="bg-success rounded-full p-4 shadow-2xl border-4 border-white flex items-center justify-center">
-            <Check className="h-12 w-12 text-white stroke-[4px]" />
-          </div>
+        <div className="fixed bottom-10 right-10 z-[100] animate-in fade-in slide-in-from-right-10 duration-500">
+          <Card className="shadow-2xl border-slate-200 w-80 md:w-96 overflow-hidden">
+            <CardContent className="p-4 flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h4 className="font-bold text-slate-900 text-base leading-none">Welcome to NEU Library!</h4>
+                <p className="text-sm text-muted-foreground">Your visit has been recorded successfully.</p>
+              </div>
+              <div className="h-10 w-10 bg-success rounded-full flex items-center justify-center shrink-0">
+                <Check className="h-6 w-6 text-white stroke-[3px]" />
+              </div>
+              <button 
+                onClick={() => setShowSuccess(false)}
+                className="absolute top-2 right-2 p-1 text-slate-300 hover:text-slate-500 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </CardContent>
+          </Card>
         </div>
       )}
 
