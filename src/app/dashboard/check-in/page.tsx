@@ -4,15 +4,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { suggestPurpose } from '@/ai/flows/smart-purpose-suggester';
-import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { initializeFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Loader2, Sparkles, BookOpen, User as UserIcon, Keyboard } from 'lucide-react';
+import { Check, Loader2, Sparkles, BookOpen, User as UserIcon, Keyboard, School } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -76,8 +76,6 @@ const PROGRAMS_MAP: Record<string, string[]> = {
   ]
 };
 
-const DEPARTMENTS = Object.keys(PROGRAMS_MAP);
-
 const COMMON_PURPOSES = [
   "Study for Exams",
   "Research / Thesis Work",
@@ -99,6 +97,10 @@ export default function CheckInPage() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Dynamic colleges from Firestore
+  const collegesQuery = useMemoFirebase(() => query(collection(db, 'colleges'), orderBy('name', 'asc')), []);
+  const { data: dbColleges, isLoading: loadingColleges } = useCollection(collegesQuery);
 
   const availablePrograms = college ? PROGRAMS_MAP[college] || [] : [];
   const isCustomPurpose = purposeSelection === "Other / Custom Purpose...";
@@ -134,8 +136,6 @@ export default function CheckInPage() {
 
     setIsSubmitting(true);
     
-    // CRITICAL: We use profile.id as the persistent identifier so history works
-    // even if the user logs in via Student ID (Anonymous Auth) in the future.
     const visitData = {
       userId: profile.id,
       userName: profile.displayName || 'Visitor',
@@ -222,15 +222,22 @@ export default function CheckInPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="college">College Department</Label>
-                <Select value={college} onValueChange={setCollege}>
+                <Label htmlFor="college" className="flex items-center gap-2">
+                  <School className="h-4 w-4 text-primary/70" />
+                  College Department
+                </Label>
+                <Select value={college} onValueChange={setCollege} disabled={loadingColleges}>
                   <SelectTrigger id="college" className="h-12">
-                    <SelectValue placeholder="Select Department" />
+                    <SelectValue placeholder={loadingColleges ? "Loading Departments..." : "Select Department"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {DEPARTMENTS.map((dept) => (
-                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                    ))}
+                    {dbColleges && dbColleges.length > 0 ? (
+                      dbColleges.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>No departments configured</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
