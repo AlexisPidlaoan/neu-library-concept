@@ -66,6 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             });
             setUser(null);
             setProfile(null);
+            setLoading(false);
             return;
           }
 
@@ -76,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const adminDocRef = doc(db, 'admins', firebaseUser.uid);
           
           const userDoc = await getDoc(userDocRef);
-          const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email);
+          const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email.toLowerCase());
 
           if (userDoc.exists()) {
             let userData = { id: firebaseUser.uid, ...userDoc.data() };
@@ -86,15 +87,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               toast({ variant: 'destructive', title: 'Access Blocked', description: 'Your account is restricted.' });
               setUser(null);
               setProfile(null);
+              setLoading(false);
               return;
             }
 
-            // Sync Admin privileges markers for security rules
-            const adminMarker = await getDoc(adminDocRef);
-            if (isAdminEmail && (!adminMarker.exists() || userData.role !== 'admin')) {
-              await updateDoc(userDocRef, { role: 'admin' });
-              userData.role = 'admin';
-              await setDoc(adminDocRef, { active: true }, { merge: true });
+            // Sync Admin privileges markers for security rules automatically
+            if (isAdminEmail) {
+              const adminMarker = await getDoc(adminDocRef);
+              if (!adminMarker.exists() || userData.role !== 'admin') {
+                await updateDoc(userDocRef, { role: 'admin' });
+                await setDoc(adminDocRef, { active: true }, { merge: true });
+                userData.role = 'admin';
+              }
             }
 
             // Handle linking pending student ID
