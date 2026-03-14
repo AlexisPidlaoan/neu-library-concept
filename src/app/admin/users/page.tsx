@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, doc, updateDoc, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, orderBy, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Users, Search, ShieldAlert, ShieldCheck, Loader2, Edit3, Check, X, DatabaseBackup } from 'lucide-react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { subDays, startOfDay } from 'date-fns';
 
 const { firestore: db } = initializeFirebase();
 
@@ -28,6 +29,14 @@ const SAMPLE_ADMINS = [
   { id: 'sample-a1', displayName: 'Alexis Pidlaoan', email: 'alexis.pidlaoan@neu.edu.ph', role: 'admin' },
   { id: 'sample-a2', displayName: 'Library Supervisor', email: 'admin.library@neu.edu.ph', role: 'admin' },
   { id: 'sample-a3', displayName: 'Library Assistant', email: 'staff.library@neu.edu.ph', role: 'admin' }
+];
+
+const SAMPLE_VISITS = [
+  { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Research for a paper', daysAgo: 0 },
+  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Arts and Sciences (CAS)', program: 'BS in Psychology', purpose: 'Study for exams', daysAgo: 0 },
+  { userId: 'sample-s3', userName: 'Jose Rizal', userEmail: 'jose.rizal@neu.edu.ph', college: 'College of Education (CED)', program: 'Bachelor of Secondary Education', purpose: 'Borrow/return books', daysAgo: 1 },
+  { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Use library computers', daysAgo: 2 },
+  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Arts and Sciences (CAS)', program: 'BS in Psychology', purpose: 'Group project meeting', daysAgo: 3 },
 ];
 
 export default function UserManagementPage() {
@@ -64,27 +73,42 @@ export default function UserManagementPage() {
     setIsSeeding(true);
     try {
       const batch = writeBatch(db);
-      const now = new Date().toISOString();
+      const now = new Date();
+      const isoNow = now.toISOString();
 
+      // Seed Users
       [...SAMPLE_STUDENTS, ...SAMPLE_ADMINS].forEach(u => {
-        // Create user profile
         const userRef = doc(db, 'users', u.id);
         batch.set(userRef, {
           ...u,
           isBlocked: false,
-          createdAt: now,
-          updatedAt: now
+          createdAt: isoNow,
+          updatedAt: isoNow
         }, { merge: true });
 
-        // If admin, also seed the admins collection for security rules
         if (u.role === 'admin') {
           const adminRef = doc(db, 'admins', u.id);
           batch.set(adminRef, { active: true }, { merge: true });
         }
       });
 
+      // Seed Visits
+      SAMPLE_VISITS.forEach((v, index) => {
+        const visitRef = doc(collection(db, 'visits'));
+        const visitDate = subDays(now, v.daysAgo);
+        batch.set(visitRef, {
+          userId: v.userId,
+          userName: v.userName,
+          userEmail: v.userEmail,
+          college: v.college,
+          program: v.program,
+          purpose: v.purpose,
+          timestamp: Timestamp.fromDate(visitDate)
+        });
+      });
+
       await batch.commit();
-      toast({ title: 'Database Populated', description: 'Sample students and admins have been added successfully.' });
+      toast({ title: 'Database Populated', description: 'Sample users and library visits added successfully.' });
       fetchUsers();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Seed Failed', description: 'Ensure you have permissions.' });

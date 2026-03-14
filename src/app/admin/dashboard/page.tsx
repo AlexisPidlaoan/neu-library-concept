@@ -12,12 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay } from 'date-fns';
-import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen, GraduationCap, PieChart as PieChartIcon } from 'lucide-react';
+import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen, GraduationCap, PieChart as PieChartIcon, AlertCircle } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const { firestore: db } = initializeFirebase();
 
@@ -39,6 +40,7 @@ export default function AdminDashboardPage() {
   const [visits, setVisits] = useState<any[]>([]);
   const [colleges, setColleges] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState('today');
   const [collegeFilter, setCollegeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,6 +51,7 @@ export default function AdminDashboardPage() {
       if (!profile || profile.role !== 'admin') return;
       
       setLoading(true);
+      setError(null);
       try {
         const collegeSnap = await getDocs(collection(db, 'colleges')).catch(err => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -83,9 +86,11 @@ export default function AdminDashboardPage() {
           ...doc.data(),
           date: doc.data().timestamp?.toDate() || new Date(),
         }));
+        
         setVisits(fetchedVisits);
-      } catch (error) {
-        // Errors are handled by the emitter
+      } catch (err: any) {
+        console.error("Dashboard Data Fetch Error:", err);
+        setError(err.message || "Failed to load dashboard data. Please ensure database indexes are ready.");
       } finally {
         setLoading(false);
       }
@@ -224,6 +229,14 @@ export default function AdminDashboardPage() {
           Export PDF Report
         </Button>
       </div>
+
+      {error && (
+        <Alert variant="destructive" className="bg-white">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>System Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="border-none shadow-sm bg-primary text-white">
@@ -445,7 +458,7 @@ export default function AdminDashboardPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
-                        No matching records found.
+                        {error ? "Error loading data." : "No matching records found for this timeframe."}
                       </TableCell>
                     </TableRow>
                   )}
