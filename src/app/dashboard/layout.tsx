@@ -37,8 +37,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const adminItems = [
     { label: 'Visit Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-    { label: 'College Mgmt', icon: BookMarked, href: '/admin/colleges' },
-    { label: 'User Mgmt', icon: Users, href: '/admin/users' },
+    { label: 'College Management', icon: BookMarked, href: '/admin/colleges' },
+    { label: 'User Management', icon: Users, href: '/admin/users' },
   ];
 
   return (
@@ -47,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarHeader className="p-4">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-white" />
+              < GraduationCap className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Library</span>
           </div>
