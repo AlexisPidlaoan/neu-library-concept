@@ -22,13 +22,34 @@ const SmartPurposeSuggesterOutputSchema = z.object({
 });
 export type SmartPurposeSuggesterOutput = z.infer<typeof SmartPurposeSuggesterOutputSchema>;
 
+const STATIC_FALLBACKS = [
+  "Study for exams",
+  "Group project meeting",
+  "Research for a paper",
+  "Read books",
+  "Use library computers",
+  "Attend a workshop",
+  "Print documents",
+  "Borrow/return books",
+  "Consult with a librarian"
+];
+
 /**
  * Suggests common purposes of visit or auto-completes user input for faster and more consistent logging.
  * @param input The user's partial input for the purpose of visit.
  * @returns A list of suggested purposes.
  */
 export async function suggestPurpose(input: SmartPurposeSuggesterInput): Promise<SmartPurposeSuggesterOutput> {
-  return smartPurposeSuggesterFlow(input);
+  try {
+    return await smartPurposeSuggesterFlow(input);
+  } catch (error) {
+    // If AI fails (e.g., Quota Exceeded), return filtered static suggestions
+    const query = input.partialPurpose.toLowerCase();
+    const filtered = STATIC_FALLBACKS.filter(s => s.toLowerCase().includes(query)).slice(0, 5);
+    return { 
+      suggestions: filtered.length > 0 ? filtered : STATIC_FALLBACKS.slice(0, 5) 
+    };
+  }
 }
 
 // Prompt definition
@@ -38,7 +59,7 @@ const smartPurposeSuggesterPrompt = ai.definePrompt({
   output: {schema: SmartPurposeSuggesterOutputSchema},
   prompt: `You are a helpful assistant for a library check-in system. The user is typing their purpose of visit. Suggest up to 5 common library visit purposes that are relevant to the user's current input. If the input is empty or very short, suggest general common purposes.
 
-Here are some common library visit purposes:
+Common library visit purposes include:
 - Study for exams
 - Group project meeting
 - Research for a paper
@@ -49,10 +70,6 @@ Here are some common library visit purposes:
 - Borrow/return books
 - Relax and read
 - Consult with a librarian
-- Access electronic resources
-- Collaborate with classmates
-- Work on personal projects
-- Prepare for presentations
 
 User input: '{{{partialPurpose}}}'
 

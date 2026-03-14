@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -96,17 +95,16 @@ export default function CheckInPage() {
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (purpose.length >= 2) {
+      // Only fetch if purpose has meaningful content or is being cleared
+      if (purpose.length >= 2 || purpose.length === 0) {
         const result = await suggestPurpose({ partialPurpose: purpose });
-        setSuggestions(result.suggestions);
-      } else if (purpose.length === 0) {
-        const result = await suggestPurpose({ partialPurpose: '' });
         setSuggestions(result.suggestions);
       } else {
         setSuggestions([]);
       }
     };
-    const debounce = setTimeout(fetchSuggestions, 300);
+    // Increased debounce to 500ms to stay within AI quotas
+    const debounce = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(debounce);
   }, [purpose]);
 
