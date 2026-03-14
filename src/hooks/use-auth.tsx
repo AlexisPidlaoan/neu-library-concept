@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -151,12 +151,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithId = async (studentId: string) => {
     setLoading(true);
     try {
-      // 1. Must be signed in (even anonymously) to satisfy security rules for querying users
+      // Must be signed in (even anonymously) to satisfy security rules for querying users
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
 
-      const q = query(collection(db, 'users'), where('studentId', '==', studentId));
+      // Query with limit(1) to be efficient and satisfy security rules
+      const q = query(
+        collection(db, 'users'), 
+        where('studentId', '==', studentId),
+        limit(1)
+      );
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
@@ -175,8 +180,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('This Student ID is currently blocked.');
       }
 
-      // Found user - already signed in (anonymously or previously)
-      // The session profile is set via the onAuthStateChanged effect
       setProfile(userData);
       router.push('/dashboard/check-in');
     } catch (error: any) {

@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * StudyFlow Security Rules
+     * NEU Library Security Rules
      */
 
     // --- Helper Functions ---
@@ -18,15 +18,20 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      // Check if user exists in the explicit roles_admin collection
+      // OR if their user document has the 'admin' role
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
     }
 
     // --- Collection Rules ---
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100);
-      allow create: if isSignedIn(); // Allow profile creation
+      allow get: if isSignedIn(); // Allow profile check
+      allow list: if isAdmin() || (isSignedIn() && (request.query.limit == null || request.query.limit <= 100));
+      allow create: if isSignedIn();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -44,7 +49,7 @@ service cloud.firestore {
 
     match /visits/{visitId} {
       allow get: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
-      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100); 
+      allow list: if isAdmin() || (isSignedIn() && (request.query.limit == null || request.query.limit <= 100)); 
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isAdmin();
       allow delete: if isAdmin();
