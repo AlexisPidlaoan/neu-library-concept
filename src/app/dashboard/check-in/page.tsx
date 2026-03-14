@@ -154,7 +154,7 @@ export default function CheckInPage() {
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 relative">
       {showSuccess && (
         <div className="fixed bottom-10 right-10 z-[100] animate-in fade-in slide-in-from-right-10 duration-500">
-          <Card className="shadow-2xl border-slate-200 w-80 md:w-96 overflow-hidden">
+          <Card className="shadow-2xl border-slate-200 w-80 md:w-96 overflow-hidden bg-white">
             <CardContent className="p-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="space-y-1">
@@ -220,7 +220,7 @@ export default function CheckInPage() {
                   College Department
                 </Label>
                 <Select value={college} onValueChange={setCollege} disabled={loadingColleges}>
-                  <SelectTrigger id="college" className="h-12 border-primary/10">
+                  <SelectTrigger id="college" className="h-12 border-primary/10 bg-white">
                     <SelectValue placeholder={loadingColleges ? "Loading Departments..." : "Select Department"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -239,7 +239,7 @@ export default function CheckInPage() {
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                   <Label htmlFor="program" className="text-primary/80">Undergraduate Program</Label>
                   <Select value={program} onValueChange={setProgram}>
-                    <SelectTrigger id="program" className="h-12 border-primary/10">
+                    <SelectTrigger id="program" className="h-12 border-primary/10 bg-white">
                       <SelectValue placeholder="Select Academic Program" />
                     </SelectTrigger>
                     <SelectContent>
@@ -255,7 +255,7 @@ export default function CheckInPage() {
                 <div className="space-y-2">
                   <Label htmlFor="purpose-select" className="text-primary/80">Purpose of Visit</Label>
                   <Select value={purposeSelection} onValueChange={setPurposeSelection}>
-                    <SelectTrigger id="purpose-select" className="h-12 border-primary/10">
+                    <SelectTrigger id="purpose-select" className="h-12 border-primary/10 bg-white">
                       <SelectValue placeholder="Select Reason for Visit" />
                     </SelectTrigger>
                     <SelectContent>
@@ -278,7 +278,7 @@ export default function CheckInPage() {
                       value={customPurpose}
                       onChange={(e) => setCustomPurpose(e.target.value)}
                       autoComplete="off"
-                      className="h-12 border-2 border-primary/10 focus:border-primary"
+                      className="h-12 border-2 border-primary/10 focus:border-primary bg-white"
                     />
                   </div>
                 )}

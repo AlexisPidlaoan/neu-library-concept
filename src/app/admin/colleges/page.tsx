@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useEffect, useState } from 'react';
@@ -131,7 +130,7 @@ export default function CollegesManagementPage() {
           size="sm" 
           onClick={handleSeedDefaults} 
           disabled={isSeeding}
-          className="gap-2 border-primary/20 hover:bg-primary/5 text-primary"
+          className="gap-2 border-primary/20 hover:bg-primary/5 text-primary bg-white"
         >
           {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />}
           Load NEU Defaults
@@ -139,7 +138,7 @@ export default function CollegesManagementPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <Card className="md:col-span-1 h-fit border-none shadow-lg">
+        <Card className="md:col-span-1 h-fit border-none shadow-lg bg-white">
           <form onSubmit={handleAddCollege}>
             <CardHeader>
               <CardTitle className="text-lg">Add New Department</CardTitle>
@@ -153,6 +152,7 @@ export default function CollegesManagementPage() {
                   placeholder="e.g., Graduate School" 
                   value={newCollege}
                   onChange={(e) => setNewCollege(e.target.value)}
+                  className="bg-white"
                 />
               </div>
             </CardContent>
@@ -165,7 +165,7 @@ export default function CollegesManagementPage() {
           </form>
         </Card>
 
-        <Card className="md:col-span-2 border-none shadow-lg">
+        <Card className="md:col-span-2 border-none shadow-lg bg-white">
           <CardHeader>
             <CardTitle className="text-lg">Existing Departments</CardTitle>
           </CardHeader>
@@ -192,7 +192,7 @@ export default function CollegesManagementPage() {
                         <Input 
                           value={editingValue} 
                           onChange={(e) => setEditingValue(e.target.value)} 
-                          className="h-8"
+                          className="h-8 bg-white"
                         />
                       ) : (
                         college.name
