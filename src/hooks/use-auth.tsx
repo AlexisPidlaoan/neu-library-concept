@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -97,7 +98,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 await updateDoc(userDocRef, { role: 'admin' });
                 userData.role = 'admin';
               }
-              // Important for Security Rules: ensure document exists in /admins
               await setDoc(adminDocRef, { active: true }, { merge: true });
             }
 
@@ -115,7 +115,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(userData);
             setUser(firebaseUser);
           } else if (firebaseUser.providerData.length > 0) {
-            // First time login - create profile
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -135,14 +134,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(newProfile);
             setUser(firebaseUser);
           } else {
-            // Anonymous session for terminal
             setUser(firebaseUser);
           }
         } catch (e: any) {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `users/${firebaseUser.uid}`,
-            operation: 'get'
-          }));
+          console.error("Auth error:", e);
         }
       } else {
         setUser(null);
@@ -188,10 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setProfile(userData);
       router.push('/dashboard/check-in');
     } catch (error: any) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: 'users',
-        operation: 'list'
-      }));
+      toast({ variant: 'destructive', title: 'Check-in Error', description: error.message });
       setLoading(false);
     }
   };
