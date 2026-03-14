@@ -1,10 +1,11 @@
+
 {
   "placeholderImages": [
     {
       "id": "hero-library",
-      "description": "A modern academic library interior with students studying.",
-      "imageUrl": "https://picsum.photos/seed/studyflow-hero/1200/600",
-      "imageHint": "library interior academic"
+      "description": "Illustration of the New Era University Library building.",
+      "imageUrl": "https://picsum.photos/seed/neu-lib-draw/1200/800",
+      "imageHint": "library building drawing"
     },
     {
       "id": "app-logo",
