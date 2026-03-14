@@ -12,9 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle2, Loader2, Sparkles, BookOpen, User as UserIcon, Keyboard } from 'lucide-react';
+import { Check, Loader2, Sparkles, BookOpen, User as UserIcon, Keyboard } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const { firestore: db } = initializeFirebase();
 
@@ -121,7 +123,7 @@ export default function CheckInPage() {
     return () => clearTimeout(debounce);
   }, [customPurpose, isCustomPurpose]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !college || !finalPurpose || (availablePrograms.length > 0 && !program)) {
       toast({
@@ -133,64 +135,59 @@ export default function CheckInPage() {
     }
 
     setIsSubmitting(true);
-    try {
-      await addDoc(collection(db, 'visits'), {
-        userId: user.uid,
-        userName: user.displayName || 'Visitor',
-        userEmail: user.email,
-        college,
-        program,
-        purpose: finalPurpose,
-        timestamp: serverTimestamp(),
+    
+    // Create the visit log data
+    const visitData = {
+      userId: user.uid,
+      userName: user.displayName || 'Visitor',
+      userEmail: user.email,
+      college,
+      program,
+      purpose: finalPurpose,
+      timestamp: serverTimestamp(),
+    };
+
+    // Initiate non-blocking write to Firestore
+    addDoc(collection(db, 'visits'), visitData)
+      .catch(async (error) => {
+        // Emit rich contextual error if write fails (e.g., security rules)
+        const permissionError = new FirestorePermissionError({
+          path: 'visits',
+          operation: 'create',
+          requestResourceData: visitData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      
-      setShowSuccess(true);
-      setPurposeSelection('');
-      setCustomPurpose('');
-      setCollege('');
-      setProgram('');
-      toast({
-        title: 'Success!',
-        description: 'Visit recorded successfully. Welcome to NEU Library!',
-      });
-      setTimeout(() => setShowSuccess(false), 5000);
-    } catch (error) {
-      console.error('Check-in failed:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to record visit. Please try again.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+
+    // Optimistically update the UI immediately
+    setShowSuccess(true);
+    setPurposeSelection('');
+    setCustomPurpose('');
+    setCollege('');
+    setProgram('');
+    setIsSubmitting(false);
+
+    // Provide immediate user feedback via toast
+    toast({
+      title: 'Success!',
+      description: 'Visit recorded successfully. Welcome to NEU Library!',
+    });
+
+    // Hide the floating success checkmark after a delay
+    setTimeout(() => setShowSuccess(false), 3000);
   };
 
-  if (showSuccess) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in zoom-in duration-500 px-4">
-        <Card className="w-full max-w-md border-none shadow-2xl bg-success text-white">
-          <CardContent className="pt-10 pb-10 flex flex-col items-center text-center">
-            <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center mb-6">
-              <CheckCircle2 className="h-12 w-12 text-white" />
-            </div>
-            <h2 className="text-3xl font-bold mb-2">Welcome to NEU Library!</h2>
-            <p className="text-white/80 text-lg mb-8">Your visit has been successfully logged.</p>
-            <Button 
-              variant="outline" 
-              className="bg-white text-success border-none hover:bg-white/90"
-              onClick={() => setShowSuccess(false)}
-            >
-              Log another visit
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 relative">
+      {/* Subtle Floating Success Indicator in the lower right */}
+      {showSuccess && (
+        <div className="fixed bottom-10 right-10 z-[100] animate-in fade-in zoom-in slide-in-from-bottom-10 duration-700">
+          <div className="bg-success rounded-full p-4 shadow-2xl border-4 border-white flex items-center justify-center">
+            <Check className="h-12 w-12 text-white stroke-[4px]" />
+          </div>
+        </div>
+      )}
+
       <Card className="border-none shadow-lg bg-primary text-white overflow-hidden">
         <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 border-4 border-white/20">
