@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -72,10 +73,10 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="border-b bg-white px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <GraduationCap className="h-8 w-8 text-primary" />
           <span className="font-bold text-2xl tracking-tight text-primary">NEU Library</span>
-        </div>
+        </Link>
         <Button variant="ghost" onClick={login} className="text-primary hover:bg-primary/5">
           Admin Login
         </Button>

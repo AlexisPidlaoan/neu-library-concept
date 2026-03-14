@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -48,12 +47,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <SidebarProvider>
       <Sidebar collapsible="icon" className="border-r shadow-sm">
         <SidebarHeader className="p-4">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Library</span>
-          </div>
+          </Link>
         </SidebarHeader>
         <SidebarContent className="px-2">
           <SidebarMenu>
