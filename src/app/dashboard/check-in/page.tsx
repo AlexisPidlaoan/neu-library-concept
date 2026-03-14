@@ -184,12 +184,12 @@ export default function CheckInPage() {
             <AvatarFallback className="text-2xl bg-white/10">{user?.displayName?.charAt(0) || user?.email?.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="text-center md:text-left">
-            <h2 className="text-3xl font-bold mb-1">{user?.displayName || 'Institutional User'}</h2>
+            <h2 className="text-3xl font-bold mb-1">{user?.displayName || 'Student'}</h2>
             <p className="text-white/80 text-lg mb-2">{user?.email}</p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
               <Badge variant="secondary" className="bg-white/20 text-white border-none px-3 py-1">
                 <UserIcon className="h-3 w-3 mr-1" />
-                Institutional User
+                Student
               </Badge>
               {profile?.role === 'admin' && (
                 <Badge variant="secondary" className="bg-accent text-white border-none px-3 py-1">

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useEffect, useState } from 'react';
@@ -80,7 +79,7 @@ export default function HistoryPage() {
               <CardDescription>Total Records: {visits.length}</CardDescription>
             </div>
             <Badge variant="secondary" className="px-4 py-1 text-primary bg-primary/10 border-none font-bold">
-              Institutional Account
+              Student Account
             </Badge>
           </div>
         </CardHeader>
