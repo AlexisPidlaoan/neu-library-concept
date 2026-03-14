@@ -1,3 +1,16 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-library",
+      "description": "Illustration of the New Era University Library building.",
+      "imageUrl": "https://picsum.photos/seed/neu-lib-draw/1200/800",
+      "imageHint": "library building drawing"
+    },
+    {
+      "id": "app-logo",
+      "description": "Abstract logo representing knowledge flow.",
+      "imageUrl": "https://picsum.photos/seed/studyflow-logo/200/200",
+      "imageHint": "education logo abstract"
+    }
+  ]
 }

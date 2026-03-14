@@ -96,7 +96,6 @@ export default function CheckInPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Dynamic colleges from Firestore
   const collegesQuery = useMemoFirebase(() => query(collection(db, 'colleges'), orderBy('name', 'asc')), []);
   const { data: dbColleges, isLoading: loadingColleges } = useCollection(collegesQuery);
 
@@ -139,8 +138,6 @@ export default function CheckInPage() {
         setCollege('');
         setProgram('');
         setIsSubmitting(false);
-
-        // Hide notification after 5 seconds
         setTimeout(() => setShowSuccess(false), 5000);
       })
       .catch(async (error) => {
@@ -160,12 +157,12 @@ export default function CheckInPage() {
         <div className="fixed bottom-10 right-10 z-[100] animate-in fade-in slide-in-from-right-10 duration-500">
           <Card className="shadow-2xl border-slate-200 w-80 md:w-96 overflow-hidden">
             <CardContent className="p-4 flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h4 className="font-bold text-slate-900 text-base leading-none">Welcome to NEU Library!</h4>
-                <p className="text-sm text-muted-foreground">Your visit has been recorded successfully.</p>
-              </div>
-              <div className="h-10 w-10 bg-success rounded-full flex items-center justify-center shrink-0">
-                <Check className="h-6 w-6 text-white stroke-[3px]" />
+              <div className="flex items-center gap-3">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-slate-900 text-base leading-none">Welcome to NEU Library!</h4>
+                  <p className="text-sm text-muted-foreground">Your visit has been recorded successfully.</p>
+                </div>
+                <Check className="h-6 w-6 text-success stroke-[3px] shrink-0" />
               </div>
               <button 
                 onClick={() => setShowSuccess(false)}
