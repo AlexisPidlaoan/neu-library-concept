@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -49,6 +49,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [pendingStudentId, setPendingStudentId] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  
+  // Track if we are in a terminal session so the auth listener doesn't wipe state
+  const isTerminalSession = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -74,6 +77,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           setUser(firebaseUser);
+
+          // If this is an anonymous terminal session and we already have a profile set, don't overwrite it
+          if (!isGoogleUser && isTerminalSession.current && profile) {
+            setLoading(false);
+            return;
+          }
 
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const adminDocRef = doc(db, 'admins', firebaseUser.uid);
@@ -131,10 +140,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             
             setPendingStudentId(null);
             setProfile(newProfile);
+          } else if (!isTerminalSession.current) {
+            // Anonymous user with no profile (and not in terminal mode)
+            setProfile(null);
           }
         } else {
           setUser(null);
           setProfile(null);
+          isTerminalSession.current = false;
         }
       } catch (e) {
         console.error("Auth Hook Error:", e);
@@ -144,10 +157,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast]);
+  }, [pendingStudentId, toast, profile]);
 
   const login = async () => {
     setLoading(true);
+    isTerminalSession.current = false;
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
@@ -161,42 +175,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithId = async (studentId: string) => {
     setLoading(true);
     try {
+      // 1. Ensure we are signed in (at least anonymously) to perform the query
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
 
+      // 2. Search for the student ID in the users collection
       const q = query(collection(db, 'users'), where('studentId', '==', studentId), limit(1));
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
+        // First time student ID - needs linking
         setPendingStudentId(studentId);
+        isTerminalSession.current = false;
         toast({ title: 'Registration Required', description: 'Student ID not found. Please link it with your Google account.' });
         setLoading(false);
         return;
       }
 
+      // 3. Success - Student found
       const foundUser = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
       
       if (foundUser.isBlocked) {
         throw new Error('This Student ID is currently restricted.');
       }
 
+      // Mark this as a terminal session and set the profile
+      isTerminalSession.current = true;
       setProfile(foundUser);
       router.push('/dashboard/check-in');
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Check-in Failed', description: error.message });
+      console.error("Terminal Login Error:", error);
+      toast({ variant: 'destructive', title: 'Check-in Failed', description: error.message || 'Permission denied.' });
       setLoading(false);
     }
   };
 
   const cancelLinking = () => {
     setPendingStudentId(null);
+    isTerminalSession.current = false;
     setLoading(false);
   };
 
   const logout = async () => {
     setLoading(true);
     try {
+      isTerminalSession.current = false;
       await signOut(auth);
       setPendingStudentId(null);
       setProfile(null);

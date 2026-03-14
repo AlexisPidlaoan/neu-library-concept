@@ -35,7 +35,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin(); 
+      // Allow list (queries) for any signed in user to support Student ID verification at the terminal
+      allow list: if isSignedIn(); 
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -54,7 +55,8 @@ service cloud.firestore {
       allow read: if isAdmin() || (
         isSignedIn() && (
           resource.data.userId == request.auth.uid || 
-          (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
+          (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email) ||
+          (resource.data.userId != null && resource.data.userId == request.auth.uid)
         )
       );
       
