@@ -10,10 +10,10 @@ import {
   GoogleAuthProvider,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
@@ -45,6 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingStudentId, setPendingStudentId] = useState<string | null>(null);
+  const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
@@ -118,7 +119,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setProfile(newProfile);
           setUser(firebaseUser);
         } else {
-          // Anonymous user session (already handled by loginWithId)
+          // Anonymous user session for checking existing ID
           setUser(firebaseUser);
         }
       } else {
@@ -129,7 +130,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId]);
+  }, [pendingStudentId, toast]);
 
   const login = async () => {
     setLoading(true);
@@ -150,6 +151,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithId = async (studentId: string) => {
     setLoading(true);
     try {
+      // 1. Must be signed in (even anonymously) to satisfy security rules for querying users
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+
       const q = query(collection(db, 'users'), where('studentId', '==', studentId));
       const querySnapshot = await getDocs(q);
       
@@ -169,11 +175,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('This Student ID is currently blocked.');
       }
 
-      // Sign in anonymously to create a session
-      const cred = await signInAnonymously(auth);
-      const sessionUser = cred.user;
-
-      // Temporary session profile
+      // Found user - already signed in (anonymously or previously)
+      // The session profile is set via the onAuthStateChanged effect
       setProfile(userData);
       router.push('/dashboard/check-in');
     } catch (error: any) {
