@@ -18,16 +18,76 @@ import { Badge } from '@/components/ui/badge';
 
 const { firestore: db } = initializeFirebase();
 
+// Mapping of Programs to College Departments
+const PROGRAMS_MAP: Record<string, string[]> = {
+  "College of Arts and Sciences (CAS)": [
+    "BA in Economics",
+    "BA in Political Science",
+    "BS in Biology",
+    "BS in Psychology",
+    "Bachelor of Public Administration"
+  ],
+  "College of Business Administration (CBA)": [
+    "BS in Entrepreneurship",
+    "BS in Real Estate Management",
+    "BSBA Major in Financial Management",
+    "BSBA Major in Human Resource Development Management",
+    "BSBA Major in Legal Management",
+    "BSBA Major in Marketing Management"
+  ],
+  "College of Communication (COC)": [
+    "BA in Broadcasting",
+    "BA in Communication",
+    "BA in Journalism"
+  ],
+  "College of Education (CED)": [
+    "Bachelor of Elementary Education (General, Preschool, or Special Education)",
+    "Bachelor of Secondary Education (English, Filipino, Mathematics, Science, Social Studies, or TLE)"
+  ],
+  "College of Engineering and Architecture (CEA)": [
+    "BS in Architecture",
+    "BS in Astronomy",
+    "BS in Civil Engineering",
+    "BS in Electrical Engineering",
+    "BS in Electronics Engineering",
+    "BS in Industrial Engineering",
+    "BS in Mechanical Engineering"
+  ],
+  "College of Informatics and Computing Studies (CICS)": [
+    "Bachelor of Library and Information Science",
+    "BS in Computer Science",
+    "BS in Entertainment and Multimedia Computing",
+    "BS in Information System",
+    "BS in Information Technology"
+  ],
+  "Medical & Health Sciences": [
+    "BS in Medical Technology",
+    "BS in Nursing",
+    "BS in Physical Therapy",
+    "BS in Respiratory Therapy",
+    "Diploma in Midwifery"
+  ],
+  "Specialized Colleges": [
+    "Bachelor of Music",
+    "BS in Agriculture",
+    "BS in Criminology",
+    "BA in Foreign Service"
+  ]
+};
+
 export default function CheckInPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [purpose, setPurpose] = useState('');
   const [college, setCollege] = useState('');
+  const [program, setProgram] = useState('');
   const [colleges, setColleges] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoadingColleges, setIsLoadingColleges] = useState(true);
+
+  const availablePrograms = college ? PROGRAMS_MAP[college] || [] : [];
 
   useEffect(() => {
     async function fetchColleges() {
@@ -44,6 +104,11 @@ export default function CheckInPage() {
     }
     fetchColleges();
   }, []);
+
+  useEffect(() => {
+    // Reset program if college changes
+    setProgram('');
+  }, [college]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -63,11 +128,11 @@ export default function CheckInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !college || !purpose) {
+    if (!user || !college || !purpose || (availablePrograms.length > 0 && !program)) {
       toast({
         variant: 'destructive',
         title: 'Missing information',
-        description: 'Please select a college department and specify your purpose of visit.'
+        description: 'Please complete all fields to log your visit.'
       });
       return;
     }
@@ -79,6 +144,7 @@ export default function CheckInPage() {
         userName: user.displayName,
         userEmail: user.email,
         college,
+        program,
         purpose,
         timestamp: serverTimestamp(),
       });
@@ -86,6 +152,7 @@ export default function CheckInPage() {
       setShowSuccess(true);
       setPurpose('');
       setCollege('');
+      setProgram('');
       toast({
         title: 'Success!',
         description: 'Visit recorded successfully. Welcome to NEU Library!',
@@ -128,7 +195,6 @@ export default function CheckInPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-      {/* Terminal View Header */}
       <Card className="border-none shadow-lg bg-primary text-white overflow-hidden">
         <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 border-4 border-white/20">
@@ -166,14 +232,14 @@ export default function CheckInPage() {
                 <BookOpen className="h-5 w-5 text-primary" />
                 Entry Information
               </CardTitle>
-              <CardDescription>Select your college department and purpose of visit.</CardDescription>
+              <CardDescription>Select your college department and academic program.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="college">College Department</Label>
                 <Select value={college} onValueChange={setCollege} disabled={isLoadingColleges}>
                   <SelectTrigger id="college" className="h-12">
-                    <SelectValue placeholder={isLoadingColleges ? "Loading data..." : "Select College Department"} />
+                    <SelectValue placeholder={isLoadingColleges ? "Loading departments..." : "Select Department"} />
                   </SelectTrigger>
                   <SelectContent>
                     {colleges.map((c) => (
@@ -185,6 +251,22 @@ export default function CheckInPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {availablePrograms.length > 0 && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label htmlFor="program">College Program</Label>
+                  <Select value={program} onValueChange={setProgram}>
+                    <SelectTrigger id="program" className="h-12">
+                      <SelectValue placeholder="Select Academic Program" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePrograms.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2 relative">
                 <div className="flex justify-between items-center">
@@ -228,7 +310,7 @@ export default function CheckInPage() {
               <Button 
                 type="submit" 
                 className="w-full h-14 text-xl font-bold bg-primary hover:bg-primary/90 shadow-lg" 
-                disabled={isSubmitting || !college || !purpose}
+                disabled={isSubmitting || !college || !purpose || (availablePrograms.length > 0 && !program)}
               >
                 {isSubmitting ? (
                   <>

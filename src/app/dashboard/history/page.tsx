@@ -3,14 +3,16 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { db } from '@/lib/firebase';
+import { initializeFirebase } from '@/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { History, Search, BookOpen, Clock } from 'lucide-react';
+import { History, Search, BookOpen, Clock, School } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+
+const { firestore: db } = initializeFirebase();
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -45,7 +47,8 @@ export default function HistoryPage() {
 
   const filteredVisits = visits.filter(visit => 
     visit.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    visit.college.toLowerCase().includes(searchTerm.toLowerCase())
+    visit.college.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (visit.program?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -76,8 +79,8 @@ export default function HistoryPage() {
               <TableHeader className="bg-slate-50">
                 <TableRow>
                   <TableHead className="w-[180px]">Date & Time</TableHead>
+                  <TableHead>Department / Program</TableHead>
                   <TableHead>Purpose</TableHead>
-                  <TableHead>Department</TableHead>
                   <TableHead className="text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -104,12 +107,22 @@ export default function HistoryPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <School className="h-3 w-3 text-primary" />
+                            {visit.college}
+                          </div>
+                          <span className="text-xs text-muted-foreground italic pl-5">
+                            {visit.program}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-2">
                           <BookOpen className="h-4 w-4 text-primary/60" />
                           <span className="line-clamp-1">{visit.purpose}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{visit.college}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary" className="bg-success/10 text-success hover:bg-success/20 border-none">
                           Logged

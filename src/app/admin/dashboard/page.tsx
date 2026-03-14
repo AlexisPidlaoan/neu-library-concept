@@ -66,6 +66,7 @@ export default function AdminDashboardPage() {
     const matchesSearch = 
       (visit.userName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (visit.userEmail?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (visit.program?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (visit.purpose?.toLowerCase() || "").includes(searchTerm.toLowerCase());
     const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
     return matchesSearch && matchesCollege;
@@ -92,13 +93,14 @@ export default function AdminDashboardPage() {
     const tableData = filteredVisits.map(v => [
       v.userName,
       v.college,
+      v.program || 'N/A',
       v.purpose,
       format(v.date, 'MMM dd, yyyy HH:mm')
     ]);
 
     autoTable(doc, {
       startY: 50,
-      head: [['Visitor Name', 'Department', 'Purpose', 'Date & Time']],
+      head: [['Visitor Name', 'Department', 'Program', 'Purpose', 'Date & Time']],
       body: tableData,
     });
 
@@ -186,7 +188,7 @@ export default function AdminDashboardPage() {
               <div className="relative min-w-[240px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Search visitors or purpose..." 
+                  placeholder="Search visitors, programs or purpose..." 
                   className="pl-10 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -223,7 +225,7 @@ export default function AdminDashboardPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Visitor</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>Dept / Program</TableHead>
                   <TableHead>Purpose</TableHead>
                   <TableHead>Logged At</TableHead>
                 </TableRow>
@@ -245,7 +247,10 @@ export default function AdminDashboardPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="font-normal">{visit.college}</Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="font-normal w-fit">{visit.college}</Badge>
+                          <span className="text-xs text-muted-foreground italic">{visit.program}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">{visit.purpose}</TableCell>
                       <TableCell className="text-sm">

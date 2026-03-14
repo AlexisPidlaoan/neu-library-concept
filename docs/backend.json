@@ -108,6 +108,10 @@
           "type": "string",
           "description": "The college or office selected during check-in."
         },
+        "program": {
+          "type": "string",
+          "description": "The academic program under the selected college."
+        },
         "purpose": {
           "type": "string",
           "description": "The reason for the library visit."
@@ -123,6 +127,7 @@
         "userId",
         "userName",
         "college",
+        "program",
         "purpose",
         "timestamp"
       ]
