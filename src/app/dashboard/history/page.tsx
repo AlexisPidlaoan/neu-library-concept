@@ -1,14 +1,14 @@
 "use client"
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { History, Search, BookOpen, Clock, School, MapPin } from 'lucide-react';
+import { History, Search, BookOpen, Clock, School, MapPin, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 const { firestore: db } = initializeFirebase();
@@ -17,23 +17,36 @@ export default function HistoryPage() {
   const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
 
+  // We query for the user's visits. 
+  // Note: We removed the orderBy from the server query to avoid requiring a composite index.
   const visitsQuery = useMemoFirebase(() => {
-    // We query by profile.id (which is the persistent Google UID)
     if (!profile?.id) return null;
     return query(
       collection(db, 'visits'),
-      where('userId', '==', profile.id),
-      orderBy('timestamp', 'desc')
+      where('userId', '==', profile.id)
     );
   }, [profile?.id]);
 
   const { data: visits, isLoading: loading } = useCollection(visitsQuery);
 
-  const filteredVisits = (visits || []).filter(visit => 
-    visit.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    visit.college.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (visit.program?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-  );
+  // Client-side processing: Sorting and Filtering
+  const processedVisits = useMemo(() => {
+    if (!visits) return [];
+
+    // 1. Filter by search term
+    const filtered = visits.filter(visit => 
+      visit.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      visit.college.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (visit.program?.toLowerCase() || "").includes(searchTerm.toLowerCase())
+    );
+
+    // 2. Sort by timestamp descending (newest first)
+    return filtered.sort((a, b) => {
+      const timeA = a.timestamp?.toDate?.()?.getTime() || 0;
+      const timeB = b.timestamp?.toDate?.()?.getTime() || 0;
+      return timeB - timeA;
+    });
+  }, [visits, searchTerm]);
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -61,11 +74,14 @@ export default function HistoryPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl">Entry Log Book</CardTitle>
-              <CardDescription>Total Records: {visits?.length || 0}</CardDescription>
+              <CardDescription>Total Records: {processedVisits.length}</CardDescription>
             </div>
-            <Badge variant="secondary" className="px-4 py-1 text-primary bg-primary/10 border-none font-bold">
-              Student Account
-            </Badge>
+            {loading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+            {!loading && (
+              <Badge variant="secondary" className="px-4 py-1 text-primary bg-primary/10 border-none font-bold">
+                Student Account
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -79,7 +95,7 @@ export default function HistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
+                {loading && processedVisits.length === 0 ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell colSpan={3} className="p-8">
@@ -90,8 +106,8 @@ export default function HistoryPage() {
                       </TableCell>
                     </TableRow>
                   ))
-                ) : filteredVisits.length > 0 ? (
-                  filteredVisits.map((visit) => {
+                ) : processedVisits.length > 0 ? (
+                  processedVisits.map((visit) => {
                     const visitDate = visit.timestamp?.toDate() || new Date();
                     return (
                       <TableRow key={visit.id} className="hover:bg-slate-50/50 transition-colors border-b last:border-0 group">
@@ -143,10 +159,10 @@ export default function HistoryPage() {
         </CardContent>
       </Card>
       
-      {!loading && filteredVisits.length > 0 && (
+      {!loading && processedVisits.length > 0 && (
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-medium bg-slate-50 py-3 rounded-full border border-dashed">
           <BookOpen className="h-4 w-4" />
-          Displaying {filteredVisits.length} recorded entries
+          Displaying {processedVisits.length} recorded entries
         </div>
       )}
     </div>

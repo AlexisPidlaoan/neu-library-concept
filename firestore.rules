@@ -25,7 +25,6 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      // Allow list for any signed in user to support Student ID lookup
       allow list: if isSignedIn(); 
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
@@ -38,13 +37,29 @@ service cloud.firestore {
     }
 
     match /visits/{visitId} {
-      allow get, list, update, delete: if isAdmin();
+      // Allow create for any signed in user
       allow create: if isSignedIn();
+      
+      // Allow read (get/list) if admin OR if the record belongs to the user (by ID or Email)
+      allow read: if isAdmin() || (
+        isSignedIn() && (
+          resource.data.userId == request.auth.uid || 
+          (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
+        )
+      );
+      
+      // Only admins can modify or remove logs
+      allow update, delete: if isAdmin();
     }
 
-    // Support for personal history queries
+    // Secondary path match for complex queries
     match /{path=**}/visits/{visitId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+       allow read: if isAdmin() || (
+        isSignedIn() && (
+          resource.data.userId == request.auth.uid || 
+          (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
+        )
+      );
     }
   }
 }
