@@ -1,65 +1,128 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * NEU Library Security Rules
+     * StudyFlow Security Rules
+     * 
+     * Core Philosophy:
+     * This ruleset implements a dual-access model designed for both privacy and administrative 
+     * oversight. It leverages "Authorization Independence" by using a dedicated /admins 
+     * collection as the source of truth for elevated privileges (DBAC - Database Access Control).
+     * 
+     * Data Structure:
+     * - /users/{userId}: Private user profiles, owned by the user.
+     * - /admins/{userId}: Role-marker collection; existence of a document grants admin status.
+     * - /colleges/{collegeId}: Global metadata for library check-ins.
+     * - /visitLogs/{visitLogId}: A flat, mirror collection of all visits for administrative dashboards.
+     * - /users/{userId}/visitLogs/{visitLogId}: Hierarchical, user-owned visit history.
+     * 
+     * Key Security Decisions:
+     * 1. DBAC (Existence over Content): Admin status is determined by the presence of a document 
+     *    in the /admins collection. This is more secure and performant than checking internal flags.
+     * 2. QAPs (Queries Are Not Filters): Data is structured into specific paths (like user subcollections 
+     *    and top-level mirrors) to ensure that 'list' operations are naturally restricted by path 
+     *    rather than complex rule-based filtering.
+     * 3. Relational Integrity: On creation of user-specific data, rules enforce that the internal 
+     *    'userId' field matches the authenticated user and the document path.
+     * 
+     * Denormalization for Authorization:
+     * - Visit logs are stored both under the user path (for personal history) and in a top-level 
+     *   collection (for admin oversight). This avoids the need for recursive collection group 
+     *   queries and allows for simple, performant security checks.
      */
 
     // --- Helper Functions ---
 
+    /** 
+     * Checks if the user is authenticated.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /** 
+     * Checks if the authenticated user's UID matches the provided userId.
+     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    /** 
+     * Verifies if a user is an administrator by checking the /admins collection.
+     */
     function isAdmin() {
-      // Check if user exists in the explicit roles_admin collection
-      // OR if their user document has the 'admin' role
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+
+    // Removed unused and problematic functions: isExistingOwner and isExistingAdmin.
+    // The 'resource' variable is only available directly within match blocks for 'update' and 'delete' operations.
 
     // --- Collection Rules ---
 
-    match /users/{userId} {
-      allow get: if isSignedIn(); // Allow profile check
-      allow list: if isAdmin() || (isSignedIn() && (request.query.limit == null || request.query.limit <= 100));
-      allow create: if isSignedIn();
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    match /roles_admin/{adminId} {
+    /**
+     * @description Rules for the admin role registry. 
+     * @path /admins/{userId}
+     * @allow Authenticated users can (get) to verify admin status; Admins can (list, create, update, delete).
+     * @deny Non-admins cannot modify the admin registry.
+     * @principle DBAC - Role status is determined by document existence.
+     */
+    match /admins/{userId} {
       allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create, update, delete: if false; 
+      allow list, create, update, delete: if isAdmin();
     }
 
+    /**
+     * @description User profile management.
+     * @path /users/{userId}
+     * @allow Owners can (create, update, get) their own profile; Admins can (get, list, update, delete).
+     * @deny Users cannot list other users or delete their own profiles.
+     * @principle Path-based ownership and relational integrity for 'id'.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Global college metadata.
+     * @path /colleges/{collegeId}
+     * @allow Any signed-in user can (get, list) colleges for selection.
+     * @deny Only administrators can (create, update, delete) colleges.
+     * @principle Public Read with Admin-Only Writes.
+     */
     match /colleges/{collegeId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
 
-    match /visits/{visitId} {
-      // Allow reading if the visitor is an admin OR if the record belongs to them.
-      // We check userId in data for ownership.
-      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      
-      // Allow listing for admins OR filtered by studentId/userId for current user
-      allow list: if isAdmin() || (isSignedIn() && (request.query.limit == null || request.query.limit <= 100)); 
-      
-      // Allow creation for any signed-in student
-      allow create: if isSignedIn();
-      
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+    /**
+     * @description Global visit logs mirror for admin dashboards.
+     * @path /visitLogs/{visitLogId}
+     * @allow Admins can (get, list, update, delete); Users can (create) if the log reflects their own UID.
+     * @deny Non-admins cannot list this collection.
+     * @principle Authorization Independence for administrative oversight.
+     */
+    match /visitLogs/{visitLogId} {
+      allow get, list, update, delete: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    /**
+     * @description Personal visit history for individual users.
+     * @path /users/{userId}/visitLogs/{visitLogId}
+     * @allow Owners and Admins can (get, list, create, update, delete).
+     * @deny Users cannot access or list logs belonging to other user IDs.
+     * @principle Hierarchical path-based ownership for private data.
+     */
+    match /users/{userId}/visitLogs/{visitLogId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.userId == resource.data.userId;
+      allow delete: if (isOwner(userId) || isAdmin()) && resource != null;
     }
   }
 }
