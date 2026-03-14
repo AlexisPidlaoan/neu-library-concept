@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { initializeFirebase } from '@/firebase';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { initializeFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -15,36 +15,20 @@ const { firestore: db } = initializeFirebase();
 
 export default function HistoryPage() {
   const { user } = useAuth();
-  const [visits, setVisits] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    async function fetchHistory() {
-      if (!user) return;
-      try {
-        const q = query(
-          collection(db, 'visits'),
-          where('userId', '==', user.uid),
-          orderBy('timestamp', 'desc')
-        );
-        const querySnapshot = await getDocs(q);
-        const fetchedVisits = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().timestamp?.toDate() || new Date(),
-        }));
-        setVisits(fetchedVisits);
-      } catch (error) {
-        console.error('Error fetching history:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchHistory();
-  }, [user]);
+  const visitsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(
+      collection(db, 'visits'),
+      where('userId', '==', user.uid),
+      orderBy('timestamp', 'desc')
+    );
+  }, [user?.uid]);
 
-  const filteredVisits = visits.filter(visit => 
+  const { data: visits, isLoading: loading } = useCollection(visitsQuery);
+
+  const filteredVisits = (visits || []).filter(visit => 
     visit.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
     visit.college.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (visit.program?.toLowerCase() || "").includes(searchTerm.toLowerCase())
@@ -76,7 +60,7 @@ export default function HistoryPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl">Entry Log Book</CardTitle>
-              <CardDescription>Total Records: {visits.length}</CardDescription>
+              <CardDescription>Total Records: {visits?.length || 0}</CardDescription>
             </div>
             <Badge variant="secondary" className="px-4 py-1 text-primary bg-primary/10 border-none font-bold">
               Student Account
@@ -107,42 +91,45 @@ export default function HistoryPage() {
                     </TableRow>
                   ))
                 ) : filteredVisits.length > 0 ? (
-                  filteredVisits.map((visit) => (
-                    <TableRow key={visit.id} className="hover:bg-slate-50/50 transition-colors border-b last:border-0 group">
-                      <TableCell className="font-medium p-6">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-slate-900 font-bold">{format(visit.date, 'MMMM dd, yyyy')}</span>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1.5 font-mono">
-                            <Clock className="h-3 w-3 text-primary" />
-                            {format(visit.date, 'hh:mm:ss a')}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="p-6">
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                            <School className="h-4 w-4 text-primary/70" />
-                            {visit.college}
+                  filteredVisits.map((visit) => {
+                    const visitDate = visit.timestamp?.toDate() || new Date();
+                    return (
+                      <TableRow key={visit.id} className="hover:bg-slate-50/50 transition-colors border-b last:border-0 group">
+                        <TableCell className="font-medium p-6">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-slate-900 font-bold">{format(visitDate, 'MMMM dd, yyyy')}</span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1.5 font-mono">
+                              <Clock className="h-3 w-3 text-primary" />
+                              {format(visitDate, 'hh:mm:ss a')}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground italic pl-6">
-                            <MapPin className="h-3 w-3" />
-                            {visit.program}
+                        </TableCell>
+                        <TableCell className="p-6">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                              <School className="h-4 w-4 text-primary/70" />
+                              {visit.college}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground italic pl-6">
+                              <MapPin className="h-3 w-3" />
+                              {visit.program}
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="p-6">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-1 h-2 w-2 rounded-full bg-accent animate-pulse" />
-                          <span className="text-slate-800 font-medium leading-relaxed">{visit.purpose}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right p-6">
-                        <Badge className="bg-success text-white border-none px-3 py-1 shadow-sm">
-                          Verified
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell className="p-6">
+                          <div className="flex items-start gap-3">
+                            <div className="mt-1 h-2 w-2 rounded-full bg-accent animate-pulse" />
+                            <span className="text-slate-800 font-medium leading-relaxed">{visit.purpose}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right p-6">
+                          <Badge className="bg-success text-white border-none px-3 py-1 shadow-sm">
+                            Verified
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="h-64 text-center">

@@ -55,7 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarContent className="px-2">
           <SidebarMenu>
             <div className="mb-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
-              User Panel
+              Student Panel
             </div>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
