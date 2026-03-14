@@ -1,25 +1,49 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { GraduationCap, BookOpen, LogIn, ShieldCheck } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { GraduationCap, BookOpen, LogIn, ShieldCheck, Nfc } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function Home() {
-  const { user, login, loading } = useAuth();
+  const { profile, login, loginWithId, loading } = useAuth();
   const router = useRouter();
+  const [studentId, setStudentId] = useState('');
+  const idInputRef = useRef<HTMLInputElement>(null);
   
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero-library');
 
   useEffect(() => {
-    if (user && !loading) {
+    if (profile && !loading) {
       router.push('/dashboard/check-in');
     }
-  }, [user, loading, router]);
+  }, [profile, loading, router]);
+
+  useEffect(() => {
+    // Keep input focused for RFID tap simulation
+    const interval = setInterval(() => {
+      if (idInputRef.current && document.activeElement !== idInputRef.current) {
+        // Only autofocus if the user isn't typing elsewhere
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleIdSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const idPattern = /^\d{2}-\d{5}-\d{3}$/;
+    if (!idPattern.test(studentId)) {
+      alert('Please enter ID in format: 12-34567-890');
+      return;
+    }
+    loginWithId(studentId);
+  };
 
   if (loading) {
     return (
@@ -40,95 +64,88 @@ export default function Home() {
           <span className="font-bold text-2xl tracking-tight text-primary">StudyFlow</span>
         </div>
         <Button variant="ghost" onClick={login} className="text-primary hover:bg-primary/5">
-          Login
+          Admin/Faculty Login
         </Button>
       </nav>
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative h-[600px] flex items-center justify-center text-white text-center px-4 overflow-hidden">
+      <main className="flex-1 flex flex-col">
+        {/* Terminal Entrance Section */}
+        <section className="flex-1 relative flex items-center justify-center p-6 bg-slate-50">
           <div className="absolute inset-0 z-0">
-            {heroImage && (
+             {heroImage && (
               <Image 
                 src={heroImage.imageUrl} 
                 alt={heroImage.description} 
                 fill 
-                className="object-cover brightness-[0.4]"
+                className="object-cover opacity-10"
                 priority
                 data-ai-hint={heroImage.imageHint}
               />
             )}
           </div>
-          <div className="relative z-10 max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 font-headline tracking-tight leading-tight">
-              Optimize Your Library Experience at NEU
-            </h1>
-            <p className="text-xl md:text-2xl mb-10 text-slate-200 max-w-2xl mx-auto">
-              Efficient visit logging, smart suggestions, and personal study history for modern university life.
-            </p>
-            <Button 
-              size="lg" 
-              onClick={login} 
-              className="bg-accent hover:bg-accent/90 text-white px-8 py-6 text-lg rounded-full shadow-lg transition-all hover:scale-105"
-            >
-              <LogIn className="mr-2 h-5 w-5" />
-              Sign in with Institutional ID
-            </Button>
-            <p className="mt-4 text-sm text-slate-400">Exclusively for @neu.edu.ph accounts</p>
-          </div>
-        </section>
+          
+          <div className="relative z-10 w-full max-w-lg">
+            <Card className="border-none shadow-2xl overflow-hidden">
+              <div className="bg-primary p-8 text-white text-center">
+                <div className="h-20 w-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                  <Nfc className="h-10 w-10 text-white" />
+                </div>
+                <h1 className="text-3xl font-bold mb-2">NEU Library Terminal</h1>
+                <p className="text-white/80">Tap your RFID ID or enter Student ID below</p>
+              </div>
+              <CardContent className="p-8 space-y-6">
+                <form onSubmit={handleIdSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-500 uppercase tracking-wider">Institutional ID</label>
+                    <Input 
+                      ref={idInputRef}
+                      placeholder="12-34567-890" 
+                      className="h-16 text-2xl text-center font-mono tracking-widest border-2 focus:border-primary transition-all"
+                      value={studentId}
+                      onChange={(e) => setStudentId(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <Button type="submit" className="w-full h-14 text-lg font-bold">
+                    PROCEED TO CHECK-IN
+                  </Button>
+                </form>
 
-        {/* Features Section */}
-        <section className="py-24 bg-background">
-          <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
-            <Card className="border-none shadow-md hover:shadow-xl transition-shadow bg-white">
-              <CardHeader>
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <BookOpen className="h-6 w-6 text-primary" />
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-muted-foreground">Or access via</span>
+                  </div>
                 </div>
-                <CardTitle className="text-xl font-bold">Fast Check-in</CardTitle>
-                <CardDescription className="text-base">
-                  Record your library visits in seconds with our streamlined flow.
-                </CardDescription>
-              </CardHeader>
+
+                <Button 
+                  variant="outline" 
+                  onClick={login} 
+                  className="w-full h-14 text-lg gap-2 border-2"
+                >
+                  <Image src="https://picsum.photos/seed/google/20/20" alt="G" width={20} height={20} className="rounded-full" />
+                  Institutional Google Account
+                </Button>
+              </CardContent>
             </Card>
-            <Card className="border-none shadow-md hover:shadow-xl transition-shadow bg-white">
-              <CardHeader>
-                <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center mb-4">
-                  <ShieldCheck className="h-6 w-6 text-accent" />
-                </div>
-                <CardTitle className="text-xl font-bold">Secure Access</CardTitle>
-                <CardDescription className="text-base">
-                  Strict domain enforcement ensures only active NEU students and staff have access.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-            <Card className="border-none shadow-md hover:shadow-xl transition-shadow bg-white">
-              <CardHeader>
-                <div className="h-12 w-12 rounded-xl bg-success/10 flex items-center justify-center mb-4">
-                  <GraduationCap className="h-6 w-6 text-success" />
-                </div>
-                <CardTitle className="text-xl font-bold">Visit History</CardTitle>
-                <CardDescription className="text-base">
-                  Keep track of your study patterns and visit logs effortlessly.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            
+            <p className="text-center mt-8 text-slate-400 text-sm flex items-center justify-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Strictly for NEU Students and Personnel
+            </p>
           </div>
         </section>
       </main>
 
-      <footer className="bg-slate-900 text-slate-400 py-12 px-6 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+      <footer className="bg-slate-900 text-slate-400 py-8 px-6 border-t border-slate-800">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <GraduationCap className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg text-white">StudyFlow</span>
+            <GraduationCap className="h-5 w-5 text-primary" />
+            <span className="font-bold text-white">StudyFlow</span>
           </div>
-          <p className="text-sm">© {new Date().getFullYear()} New Era University Library. All rights reserved.</p>
-          <div className="flex gap-6 text-sm">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-          </div>
+          <p className="text-xs">© {new Date().getFullYear()} New Era University Library. Terminal #001</p>
         </div>
       </footer>
     </div>

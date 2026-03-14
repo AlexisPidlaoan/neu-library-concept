@@ -1,17 +1,20 @@
+
 "use client"
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { db } from '@/lib/firebase';
+import { initializeFirebase } from '@/firebase';
 import { collection, query, getDocs, doc, updateDoc, orderBy } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Search, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
+import { Users, Search, ShieldAlert, ShieldCheck, Loader2, Edit3, Check, X } from 'lucide-react';
+
+const { firestore: db } = initializeFirebase();
 
 export default function UserManagementPage() {
   const { profile } = useAuth();
@@ -20,6 +23,8 @@ export default function UserManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editStudentId, setEditStudentId] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -54,9 +59,21 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleUpdateStudentId = async (userId: string) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { studentId: editStudentId });
+      setUsers(users.map(u => u.id === userId ? { ...u, studentId: editStudentId } : u));
+      setEditingId(null);
+      toast({ title: 'ID Updated' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update student ID.' });
+    }
+  };
+
   const filteredUsers = users.filter(user => 
     user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.studentId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (profile?.role !== 'admin') return <div className="p-8">Access Denied</div>;
@@ -74,7 +91,7 @@ export default function UserManagementPage() {
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search by name or email..." 
+            placeholder="Search by name, email or ID..." 
             className="pl-10 bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -89,6 +106,7 @@ export default function UserManagementPage() {
               <TableRow>
                 <TableHead className="w-[80px]"></TableHead>
                 <TableHead>User Details</TableHead>
+                <TableHead>Student/Emp ID</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Access Control</TableHead>
@@ -98,7 +116,7 @@ export default function UserManagementPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={5} className="h-16 animate-pulse bg-slate-50/50"></TableCell>
+                    <TableCell colSpan={6} className="h-16 animate-pulse bg-slate-50/50"></TableCell>
                   </TableRow>
                 ))
               ) : filteredUsers.length > 0 ? (
@@ -115,6 +133,39 @@ export default function UserManagementPage() {
                         <span className="font-semibold">{user.displayName}</span>
                         <span className="text-xs text-muted-foreground">{user.email}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {editingId === user.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input 
+                            className="h-8 w-32 text-xs" 
+                            value={editStudentId} 
+                            onChange={(e) => setEditStudentId(e.target.value)}
+                            placeholder="12-34567-890"
+                          />
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-success" onClick={() => handleUpdateStudentId(user.id)}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setEditingId(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group">
+                          <span className="font-mono text-sm">{user.studentId || 'Not set'}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              setEditingId(user.id);
+                              setEditStudentId(user.studentId || '');
+                            }}
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize font-normal">
@@ -159,7 +210,7 @@ export default function UserManagementPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
                     No users found matching your search.
                   </TableCell>
                 </TableRow>

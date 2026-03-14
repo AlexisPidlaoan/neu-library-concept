@@ -7,9 +7,10 @@ import {
   signInWithPopup, 
   signOut, 
   User, 
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -21,6 +22,7 @@ interface AuthContextType {
   profile: any | null;
   loading: boolean;
   login: () => Promise<void>;
+  loginWithId: (studentId: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -29,6 +31,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   login: async () => {},
+  loginWithId: async () => {},
   logout: async () => {},
 });
 
@@ -41,7 +44,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        if (!firebaseUser.email?.endsWith('@neu.edu.ph')) {
+        // If it's a real user from Google, check domain
+        if (firebaseUser.providerData.length > 0 && !firebaseUser.email?.endsWith('@neu.edu.ph')) {
           await signOut(auth);
           alert('Access denied. Only @neu.edu.ph accounts are allowed.');
           setUser(null);
@@ -65,7 +69,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
           setProfile(userData);
           setUser(firebaseUser);
-        } else {
+        } else if (firebaseUser.providerData.length > 0) {
+          // New Google User
           const newProfile = {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
@@ -100,13 +105,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const loginWithId = async (studentId: string) => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'users'), where('studentId', '==', studentId));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        throw new Error('ID not found. Please register or see an admin.');
+      }
+
+      const userData = querySnapshot.docs[0].data();
+      if (userData.isBlocked) {
+        throw new Error('This ID is blocked.');
+      }
+
+      // In a real app, we'd sign in properly. 
+      // For this MVP, we simulate login by signing in anonymously if not already signed in,
+      // and linking the profile in state.
+      await signInAnonymously(auth);
+      setProfile(userData);
+      // setUser is handled by onAuthStateChanged, but we override profile immediately
+      router.push('/dashboard/check-in');
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
     router.push('/');
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, loginWithId, logout }}>
       {children}
     </AuthContext.Provider>
   );
