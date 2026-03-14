@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from 'react';
@@ -19,8 +18,7 @@ export default function HistoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const visitsQuery = useMemoFirebase(() => {
-    // CRITICAL: We query by profile.id (which is the persistent Google UID)
-    // instead of user.uid (which is transient for anonymous terminal sessions)
+    // We query by profile.id (which is the persistent Google UID)
     if (!profile?.id) return null;
     return query(
       collection(db, 'visits'),
@@ -78,14 +76,13 @@ export default function HistoryPage() {
                   <TableHead className="w-[200px] font-bold text-slate-700">Date & Time</TableHead>
                   <TableHead className="font-bold text-slate-700">Academic Background</TableHead>
                   <TableHead className="font-bold text-slate-700">Purpose of Visit</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={4} className="p-8">
+                      <TableCell colSpan={3} className="p-8">
                         <div className="space-y-3">
                           <div className="h-4 w-3/4 bg-slate-100 animate-pulse rounded"></div>
                           <div className="h-3 w-1/2 bg-slate-50 animate-pulse rounded"></div>
@@ -125,17 +122,12 @@ export default function HistoryPage() {
                             <span className="text-slate-800 font-medium leading-relaxed">{visit.purpose}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right p-6">
-                          <Badge className="bg-success text-white border-none px-3 py-1 shadow-sm">
-                            Verified
-                          </Badge>
-                        </TableCell>
                       </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-64 text-center">
+                    <TableCell colSpan={3} className="h-64 text-center">
                       <div className="flex flex-col items-center justify-center gap-4 text-muted-foreground">
                         <div className="p-6 bg-slate-50 rounded-full">
                           <BookOpen className="h-12 w-12 opacity-20" />
