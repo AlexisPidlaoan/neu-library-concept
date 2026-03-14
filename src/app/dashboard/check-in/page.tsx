@@ -20,7 +20,6 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const { firestore: db } = initializeFirebase();
 
-// Mapping of Programs to College Departments
 const PROGRAMS_MAP: Record<string, string[]> = {
   "College of Arts and Sciences (CAS)": [
     "BA in Economics",
@@ -43,8 +42,8 @@ const PROGRAMS_MAP: Record<string, string[]> = {
     "BA in Journalism"
   ],
   "College of Education (CED)": [
-    "Bachelor of Elementary Education (General, Preschool, or Special Education)",
-    "Bachelor of Secondary Education (Majors: English, Filipino, Mathematics, Science, Social Studies, or TLE)"
+    "Bachelor of Elementary Education",
+    "Bachelor of Secondary Education"
   ],
   "College of Engineering and Architecture (CEA)": [
     "BS in Architecture",
@@ -58,7 +57,7 @@ const PROGRAMS_MAP: Record<string, string[]> = {
   "College of Informatics and Computing Studies (CICS)": [
     "Bachelor of Library and Information Science",
     "BS in Computer Science",
-    "BS in Entertainment and Multimedia Computing (Digital Animation or Game Development)",
+    "BS in Entertainment and Multimedia Computing",
     "BS in Information System",
     "BS in Information Technology"
   ],
@@ -70,10 +69,10 @@ const PROGRAMS_MAP: Record<string, string[]> = {
     "Diploma in Midwifery"
   ],
   "Specialized Colleges": [
-    "Bachelor of Music (Choral Conducting, Music Education, Piano, or Voice)",
+    "Bachelor of Music",
     "BS in Agriculture",
     "BS in Criminology",
-    "BA in Foreign Service (School of International Relations)"
+    "BA in Foreign Service"
   ]
 };
 
@@ -106,7 +105,6 @@ export default function CheckInPage() {
   const finalPurpose = isCustomPurpose ? customPurpose : purposeSelection;
 
   useEffect(() => {
-    // Reset program if college changes
     setProgram('');
   }, [college]);
 
@@ -136,7 +134,6 @@ export default function CheckInPage() {
 
     setIsSubmitting(true);
     
-    // Create the visit log data
     const visitData = {
       userId: user.uid,
       userName: user.displayName || 'Visitor',
@@ -147,10 +144,8 @@ export default function CheckInPage() {
       timestamp: serverTimestamp(),
     };
 
-    // Initiate non-blocking write to Firestore
     addDoc(collection(db, 'visits'), visitData)
       .catch(async (error) => {
-        // Emit rich contextual error if write fails (e.g., security rules)
         const permissionError = new FirestorePermissionError({
           path: 'visits',
           operation: 'create',
@@ -159,7 +154,6 @@ export default function CheckInPage() {
         errorEmitter.emit('permission-error', permissionError);
       });
 
-    // Optimistically update the UI immediately
     setShowSuccess(true);
     setPurposeSelection('');
     setCustomPurpose('');
@@ -167,19 +161,16 @@ export default function CheckInPage() {
     setProgram('');
     setIsSubmitting(false);
 
-    // Provide immediate user feedback via toast
     toast({
-      title: 'Success!',
-      description: 'Visit recorded successfully. Welcome to NEU Library!',
+      title: 'Welcome to NEU Library!',
+      description: 'Your visit has been recorded successfully.',
     });
 
-    // Hide the floating success checkmark after a delay
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 relative">
-      {/* Subtle Floating Success Indicator in the lower right */}
       {showSuccess && (
         <div className="fixed bottom-10 right-10 z-[100] animate-in fade-in zoom-in slide-in-from-bottom-10 duration-700">
           <div className="bg-success rounded-full p-4 shadow-2xl border-4 border-white flex items-center justify-center">
@@ -215,7 +206,7 @@ export default function CheckInPage() {
       <div className="max-w-2xl mx-auto">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Library Check-in</h1>
-          <p className="text-muted-foreground">Please complete the details below to log your entry.</p>
+          <p className="text-muted-foreground">Complete the details to log your entry.</p>
         </div>
 
         <Card className="border-none shadow-xl">
@@ -225,7 +216,7 @@ export default function CheckInPage() {
                 <BookOpen className="h-5 w-5 text-primary" />
                 Entry Information
               </CardTitle>
-              <CardDescription>Select your college department and academic program.</CardDescription>
+              <CardDescription>Select your department and undergraduate program.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -244,7 +235,7 @@ export default function CheckInPage() {
 
               {availablePrograms.length > 0 && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Label htmlFor="program">College Program</Label>
+                  <Label htmlFor="program">Undergraduate Program</Label>
                   <Select value={program} onValueChange={setProgram}>
                     <SelectTrigger id="program" className="h-12">
                       <SelectValue placeholder="Select Academic Program" />
@@ -278,16 +269,16 @@ export default function CheckInPage() {
                     <div className="flex justify-between items-center">
                       <Label htmlFor="custom-purpose" className="text-xs font-semibold text-primary flex items-center gap-1">
                         <Keyboard className="h-3 w-3" />
-                        Specify Custom Purpose
+                        Custom Purpose
                       </Label>
                       <div className="flex items-center gap-1 text-[10px] text-accent font-bold uppercase tracking-wider">
                         <Sparkles className="h-3 w-3" />
-                        Smart Suggestions
+                        AI Suggester
                       </div>
                     </div>
                     <Input
                       id="custom-purpose"
-                      placeholder="e.g., Thesis Data Collection..."
+                      placeholder="e.g., Thesis Research..."
                       value={customPurpose}
                       onChange={(e) => setCustomPurpose(e.target.value)}
                       autoComplete="off"
@@ -324,10 +315,10 @@ export default function CheckInPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                    Recording Visit...
+                    Logging...
                   </>
                 ) : (
-                  'TAP TO CONFIRM ENTRY'
+                  'CONFIRM ENTRY'
                 )}
               </Button>
             </CardFooter>
@@ -335,7 +326,7 @@ export default function CheckInPage() {
         </Card>
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          By tapping confirm, you agree to maintain silence and follow all library policies.
+          By confirming, you agree to follow the NEU Library silent policy.
         </p>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState, useMemo } from 'react';
@@ -11,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay } from 'date-fns';
-import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen, GraduationCap } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
@@ -64,16 +65,16 @@ export default function AdminDashboardPage() {
   }, [timeFilter]);
 
   const filteredVisits = visits.filter(visit => {
+    const searchLow = searchTerm.toLowerCase();
     const matchesSearch = 
-      (visit.userName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (visit.userEmail?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (visit.program?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (visit.purpose?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+      (visit.userName?.toLowerCase() || "").includes(searchLow) ||
+      (visit.userEmail?.toLowerCase() || "").includes(searchLow) ||
+      (visit.program?.toLowerCase() || "").includes(searchLow) ||
+      (visit.purpose?.toLowerCase() || "").includes(searchLow);
     const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
     return matchesSearch && matchesCollege;
   });
 
-  // Trend Data for Chart
   const trendData = useMemo(() => {
     const now = new Date();
     let interval: { start: Date; end: Date };
@@ -101,6 +102,11 @@ export default function AdminDashboardPage() {
     return acc;
   }, {});
 
+  const programStats = filteredVisits.reduce((acc: any, visit) => {
+    acc[visit.program] = (acc[visit.program] || 0) + 1;
+    return acc;
+  }, {});
+
   const purposeStats = filteredVisits.reduce((acc: any, visit) => {
     acc[visit.purpose] = (acc[visit.purpose] || 0) + 1;
     return acc;
@@ -108,13 +114,14 @@ export default function AdminDashboardPage() {
 
   const topPurpose = Object.keys(purposeStats).sort((a, b) => purposeStats[b] - purposeStats[a])[0] || 'N/A';
   const topCollege = Object.keys(collegeStats).sort((a, b) => collegeStats[b] - collegeStats[a])[0] || 'N/A';
+  const topProgram = Object.keys(programStats).sort((a, b) => programStats[b] - programStats[a])[0] || 'N/A';
 
   const generatePDF = () => {
     setIsExporting(true);
     const doc = new jsPDF();
     
     doc.setFontSize(22);
-    doc.setTextColor(57, 110, 173); // Primary Color
+    doc.setTextColor(57, 110, 173);
     doc.text("NEU Library Visitor Report", 14, 22);
     
     doc.setFontSize(11);
@@ -192,7 +199,7 @@ export default function AdminDashboardPage() {
               <School className="h-4 w-4 text-primary" />
               Top Department
             </CardDescription>
-            <CardTitle className="text-xl font-bold truncate">
+            <CardTitle className="text-lg font-bold truncate">
               {topCollege}
             </CardTitle>
           </CardHeader>
@@ -200,11 +207,11 @@ export default function AdminDashboardPage() {
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-accent" />
-              Primary Purpose
+              <GraduationCap className="h-4 w-4 text-accent" />
+              Top Program
             </CardDescription>
-            <CardTitle className="text-xl font-bold truncate">
-              {topPurpose}
+            <CardTitle className="text-lg font-bold truncate">
+              {topProgram}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -226,9 +233,9 @@ export default function AdminDashboardPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
-              Visitor Trends
+              Visitor Traffic Trend
             </CardTitle>
-            <CardDescription>Visualizing traffic flow over the selected timeframe.</CardDescription>
+            <CardDescription>Visualizing entries over the selected timeframe.</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px] w-full pt-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -259,7 +266,7 @@ export default function AdminDashboardPage() {
         <Card className="border-none shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg">Quick Filters</CardTitle>
-            <CardDescription>Refine your active view.</CardDescription>
+            <CardDescription>Refine your statistics.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -272,7 +279,7 @@ export default function AdminDashboardPage() {
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="week">This Week</SelectItem>
                   <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="all">All Time History</SelectItem>
+                  <SelectItem value="all">All Time</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -291,11 +298,11 @@ export default function AdminDashboardPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Keywords</label>
+              <label className="text-sm font-medium">Search Entries</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Name, program, purpose..." 
+                  placeholder="Name, program, or purpose" 
                   className="pl-10 bg-slate-50"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -308,7 +315,7 @@ export default function AdminDashboardPage() {
 
       <Card className="border-none shadow-lg">
         <CardHeader className="border-b bg-slate-50/50">
-          <CardTitle className="text-lg">Detailed Visitor Log</CardTitle>
+          <CardTitle className="text-lg">Detailed Entry Log</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -318,7 +325,7 @@ export default function AdminDashboardPage() {
                   <TableHead>Visitor</TableHead>
                   <TableHead>Dept / Program</TableHead>
                   <TableHead>Purpose</TableHead>
-                  <TableHead>Logged At</TableHead>
+                  <TableHead>Time Entry</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -352,7 +359,7 @@ export default function AdminDashboardPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
-                      No records match the current filters.
+                      No matching records found.
                     </TableCell>
                   </TableRow>
                 )}
