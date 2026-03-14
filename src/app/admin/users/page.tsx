@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useEffect, useState } from 'react';
@@ -13,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Search, ShieldAlert, ShieldCheck, Loader2, Edit3, Check, X, DatabaseBackup } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const { firestore: db } = initializeFirebase();
 
@@ -49,7 +50,10 @@ export default function UserManagementPage() {
       const querySnapshot = await getDocs(q);
       setUsers(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (error) {
-      console.error('Error fetching users:', error);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'users',
+        operation: 'list'
+      }));
     } finally {
       setLoading(false);
     }
@@ -69,13 +73,19 @@ export default function UserManagementPage() {
           createdAt: now,
           updatedAt: now
         }, { merge: true });
+
+        // If admin, also seed the admins collection for security rules
+        if (u.role === 'admin') {
+          const adminRef = doc(db, 'admins', u.id);
+          batch.set(adminRef, { active: true }, { merge: true });
+        }
       });
 
       await batch.commit();
       toast({ title: 'Database Populated', description: 'Sample students and admins have been added.' });
       fetchUsers();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Seed Failed', description: 'Could not populate sample data.' });
+      toast({ variant: 'destructive', title: 'Seed Failed' });
     } finally {
       setIsSeeding(false);
     }
@@ -85,12 +95,8 @@ export default function UserManagementPage() {
     const digits = value.replace(/\D/g, "");
     const truncated = digits.slice(0, 10);
     let formatted = truncated;
-    if (truncated.length > 2) {
-      formatted = `${truncated.slice(0, 2)}-${truncated.slice(2)}`;
-    }
-    if (truncated.length > 7) {
-      formatted = `${truncated.slice(0, 2)}-${truncated.slice(2, 7)}-${truncated.slice(7)}`;
-    }
+    if (truncated.length > 2) formatted = `${truncated.slice(0, 2)}-${truncated.slice(2)}`;
+    if (truncated.length > 7) formatted = `${truncated.slice(0, 2)}-${truncated.slice(2, 7)}-${truncated.slice(7)}`;
     return formatted;
   };
 
@@ -104,12 +110,9 @@ export default function UserManagementPage() {
       const newStatus = !user.isBlocked;
       await updateDoc(doc(db, 'users', user.id), { isBlocked: newStatus });
       setUsers(users.map(u => u.id === user.id ? { ...u, isBlocked: newStatus } : u));
-      toast({
-        title: newStatus ? 'User Blocked' : 'User Unblocked',
-        description: `${user.displayName} has been ${newStatus ? 'blocked' : 'unblocked'}.`
-      });
+      toast({ title: newStatus ? 'User Blocked' : 'User Unblocked' });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update user status.' });
+      toast({ variant: 'destructive', title: 'Error' });
     } finally {
       setUpdatingId(null);
     }
@@ -118,7 +121,7 @@ export default function UserManagementPage() {
   const handleUpdateStudentId = async (userId: string) => {
     const idPattern = /^\d{2}-\d{5}-\d{3}$/;
     if (editStudentId && !idPattern.test(editStudentId)) {
-      toast({ variant: 'destructive', title: 'Invalid Format', description: 'Please use 12-34567-890 format.' });
+      toast({ variant: 'destructive', title: 'Invalid Format' });
       return;
     }
 
@@ -128,7 +131,7 @@ export default function UserManagementPage() {
       setEditingId(null);
       toast({ title: 'ID Updated' });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update student ID.' });
+      toast({ variant: 'destructive', title: 'Error' });
     }
   };
 
@@ -295,12 +298,6 @@ export default function UserManagementPage() {
           </Table>
         </CardContent>
       </Card>
-      
-      {!loading && (
-        <p className="mt-4 text-sm text-muted-foreground text-center">
-          Showing {filteredUsers.length} of {users.length} accounts
-        </p>
-      )}
     </div>
   );
 }

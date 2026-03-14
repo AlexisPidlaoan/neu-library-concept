@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -10,10 +9,12 @@ import {
   GoogleAuthProvider,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, deleteDoc } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
@@ -53,14 +54,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Domain check for Google users
         if (firebaseUser.providerData.length > 0 && firebaseUser.providerData[0].providerId === 'google.com') {
           if (!firebaseUser.email?.endsWith('@neu.edu.ph')) {
             await signOut(auth);
             toast({
               variant: 'destructive',
               title: 'Invalid Institutional Email',
-              description: 'Access denied. You must use your official @neu.edu.ph institutional Google account.',
+              description: 'Access denied. Use @neu.edu.ph account.',
             });
             setUser(null);
             setProfile(null);
@@ -70,67 +70,72 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email);
+        const adminDocRef = doc(db, 'admins', firebaseUser.uid);
+        
+        try {
+          const userDoc = await getDoc(userDocRef);
+          const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email);
 
-        if (userDoc.exists()) {
-          let userData = userDoc.data();
-          
-          if (userData.isBlocked) {
-            await signOut(auth);
-            toast({
-              variant: 'destructive',
-              title: 'Access Blocked',
-              description: 'Your account has been blocked by an administrator.',
-            });
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-            return;
-          }
+          if (userDoc.exists()) {
+            let userData = userDoc.data();
+            
+            if (userData.isBlocked) {
+              await signOut(auth);
+              toast({ variant: 'destructive', title: 'Access Blocked' });
+              setUser(null);
+              setProfile(null);
+              setLoading(false);
+              return;
+            }
 
-          // Force admin role if email matches
-          if (isAdminEmail && userData.role !== 'admin') {
-            await updateDoc(userDocRef, { role: 'admin' });
-            userData.role = 'admin';
-          }
+            if (isAdminEmail) {
+              if (userData.role !== 'admin') {
+                await updateDoc(userDocRef, { role: 'admin' });
+                userData.role = 'admin';
+              }
+              // Sync to admins collection for security rules
+              await setDoc(adminDocRef, { active: true }, { merge: true });
+            }
 
-          // If we have a pendingStudentId, link it now
-          if (pendingStudentId) {
-            await updateDoc(userDocRef, {
-              studentId: pendingStudentId,
-              updatedAt: new Date().toISOString()
-            });
-            userData.studentId = pendingStudentId;
+            if (pendingStudentId) {
+              await updateDoc(userDocRef, {
+                studentId: pendingStudentId,
+                updatedAt: new Date().toISOString()
+              });
+              userData.studentId = pendingStudentId;
+              setPendingStudentId(null);
+              toast({ title: 'ID Linked!' });
+            }
+
+            setProfile(userData);
+            setUser(firebaseUser);
+          } else if (firebaseUser.providerData.length > 0) {
+            const newProfile = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+              role: isAdminEmail ? 'admin' : 'student',
+              studentId: pendingStudentId || null,
+              isBlocked: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            await setDoc(userDocRef, newProfile);
+            if (isAdminEmail) {
+              await setDoc(adminDocRef, { active: true });
+            }
             setPendingStudentId(null);
-            toast({
-              title: 'ID Linked!',
-              description: `Student ID ${pendingStudentId} is now linked to your account.`,
-            });
+            setProfile(newProfile);
+            setUser(firebaseUser);
+          } else {
+            setUser(firebaseUser);
           }
-
-          setProfile(userData);
-          setUser(firebaseUser);
-        } else if (firebaseUser.providerData.length > 0) {
-          // New Google User
-          const newProfile = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            photoURL: firebaseUser.photoURL,
-            role: isAdminEmail ? 'admin' : 'student',
-            studentId: pendingStudentId || null,
-            isBlocked: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          await setDoc(userDocRef, newProfile);
-          setPendingStudentId(null);
-          setProfile(newProfile);
-          setUser(firebaseUser);
-        } else {
-          // Anonymous user session for checking existing ID
-          setUser(firebaseUser);
+        } catch (e: any) {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: `users/${firebaseUser.uid}`,
+            operation: 'get'
+          }));
         }
       } else {
         setUser(null);
@@ -147,12 +152,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
-      console.error('Login failed:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
-        description: error.message || 'Failed to sign in with Google.',
-      });
+      toast({ variant: 'destructive', title: 'Login Error', description: error.message });
     } finally {
       setLoading(false);
     }
@@ -161,50 +161,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithId = async (studentId: string) => {
     setLoading(true);
     try {
-      // Must be signed in (even anonymously) to satisfy security rules for querying users
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
 
-      // Query with limit(1) to be efficient and satisfy security rules
-      const q = query(
-        collection(db, 'users'), 
-        where('studentId', '==', studentId),
-        limit(1)
-      );
+      const q = query(collection(db, 'users'), where('studentId', '==', studentId), limit(1));
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        // First time ID - trigger linking flow
         setPendingStudentId(studentId);
-        toast({
-          title: 'New Student ID',
-          description: 'This ID is not registered. Please sign in with Google to link it.',
-        });
+        toast({ title: 'New Student ID', description: 'Please sign in with Google to link it.' });
         setLoading(false);
         return;
       }
 
       const userData = querySnapshot.docs[0].data();
-      if (userData.isBlocked) {
-        throw new Error('This Student ID is currently blocked.');
-      }
+      if (userData.isBlocked) throw new Error('Student ID is blocked.');
 
       setProfile(userData);
       router.push('/dashboard/check-in');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: error.message,
-      });
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'users',
+        operation: 'list'
+      }));
       setLoading(false);
     }
   };
 
-  const cancelLinking = () => {
-    setPendingStudentId(null);
-  };
+  const cancelLinking = () => setPendingStudentId(null);
 
   const logout = async () => {
     await signOut(auth);
