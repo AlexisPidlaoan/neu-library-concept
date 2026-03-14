@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { suggestPurpose } from '@/ai/flows/smart-purpose-suggester';
 import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,7 +42,7 @@ const PROGRAMS_MAP: Record<string, string[]> = {
   ],
   "College of Education (CED)": [
     "Bachelor of Elementary Education (General, Preschool, or Special Education)",
-    "Bachelor of Secondary Education (English, Filipino, Mathematics, Science, Social Studies, or TLE)"
+    "Bachelor of Secondary Education (Majors: English, Filipino, Mathematics, Science, Social Studies, or TLE)"
   ],
   "College of Engineering and Architecture (CEA)": [
     "BS in Architecture",
@@ -56,7 +56,7 @@ const PROGRAMS_MAP: Record<string, string[]> = {
   "College of Informatics and Computing Studies (CICS)": [
     "Bachelor of Library and Information Science",
     "BS in Computer Science",
-    "BS in Entertainment and Multimedia Computing",
+    "BS in Entertainment and Multimedia Computing (Digital Animation or Game Development)",
     "BS in Information System",
     "BS in Information Technology"
   ],
@@ -68,12 +68,14 @@ const PROGRAMS_MAP: Record<string, string[]> = {
     "Diploma in Midwifery"
   ],
   "Specialized Colleges": [
-    "Bachelor of Music",
+    "Bachelor of Music (Choral Conducting, Music Education, Piano, or Voice)",
     "BS in Agriculture",
     "BS in Criminology",
-    "BA in Foreign Service"
+    "BA in Foreign Service (School of International Relations)"
   ]
 };
+
+const DEPARTMENTS = Object.keys(PROGRAMS_MAP);
 
 export default function CheckInPage() {
   const { user, profile } = useAuth();
@@ -81,29 +83,11 @@ export default function CheckInPage() {
   const [purpose, setPurpose] = useState('');
   const [college, setCollege] = useState('');
   const [program, setProgram] = useState('');
-  const [colleges, setColleges] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isLoadingColleges, setIsLoadingColleges] = useState(true);
 
   const availablePrograms = college ? PROGRAMS_MAP[college] || [] : [];
-
-  useEffect(() => {
-    async function fetchColleges() {
-      try {
-        const q = query(collection(db, 'colleges'), orderBy('name', 'asc'));
-        const querySnapshot = await getDocs(q);
-        const fetchedColleges = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setColleges(fetchedColleges);
-      } catch (error) {
-        console.error('Error fetching colleges:', error);
-      } finally {
-        setIsLoadingColleges(false);
-      }
-    }
-    fetchColleges();
-  }, []);
 
   useEffect(() => {
     // Reset program if college changes
@@ -141,7 +125,7 @@ export default function CheckInPage() {
     try {
       await addDoc(collection(db, 'visits'), {
         userId: user.uid,
-        userName: user.displayName,
+        userName: user.displayName || 'Visitor',
         userEmail: user.email,
         college,
         program,
@@ -199,10 +183,10 @@ export default function CheckInPage() {
         <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 border-4 border-white/20">
             <AvatarImage src={user?.photoURL || ''} />
-            <AvatarFallback className="text-2xl bg-white/10">{user?.displayName?.charAt(0)}</AvatarFallback>
+            <AvatarFallback className="text-2xl bg-white/10">{user?.displayName?.charAt(0) || user?.email?.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="text-center md:text-left">
-            <h2 className="text-3xl font-bold mb-1">{user?.displayName}</h2>
+            <h2 className="text-3xl font-bold mb-1">{user?.displayName || 'Institutional User'}</h2>
             <p className="text-white/80 text-lg mb-2">{user?.email}</p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
               <Badge variant="secondary" className="bg-white/20 text-white border-none px-3 py-1">
@@ -237,17 +221,14 @@ export default function CheckInPage() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="college">College Department</Label>
-                <Select value={college} onValueChange={setCollege} disabled={isLoadingColleges}>
+                <Select value={college} onValueChange={setCollege}>
                   <SelectTrigger id="college" className="h-12">
-                    <SelectValue placeholder={isLoadingColleges ? "Loading departments..." : "Select Department"} />
+                    <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {colleges.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                    {DEPARTMENTS.map((dept) => (
+                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                     ))}
-                    {colleges.length === 0 && !isLoadingColleges && (
-                      <SelectItem value="Other" disabled>No departments found</SelectItem>
-                    )}
                   </SelectContent>
                 </Select>
               </div>
