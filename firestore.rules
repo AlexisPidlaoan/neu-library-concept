@@ -1,87 +1,52 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
      * StudyFlow Security Rules
-     *
-     * Core Philosophy: 
-     * This ruleset implements a strict user-ownership model combined with an optimized 
-     * administrative role-based access control (RBAC) system. 
      */
 
     // --- Helper Functions ---
 
-    /** @description Checks if the user is authenticated. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the user's UID matches the provided userId. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** 
-     * @description Checks if the user has an entry in the 'roles_admin' collection.
-     * Note: For admin features to work, you must manually add the user's UID 
-     * as a document ID in the 'roles_admin' collection via the Firebase Console.
-     */
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
     // --- Collection Rules ---
 
-    /**
-     * @description Rules for user profiles.
-     * @path /users/{userId}
-     */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isOwner(userId);
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100);
+      allow create: if isSignedIn(); // Allow profile creation
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Optimized lookup for admin roles.
-     * @path /roles_admin/{adminId}
-     */
     match /roles_admin/{adminId} {
-      allow get: if isSignedIn(); // Allow checking if self is admin
+      allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create, update, delete: if false; 
     }
 
-    /**
-     * @description Academic colleges lookup.
-     * @path /colleges/{collegeId}
-     */
     match /colleges/{collegeId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Library visit records.
-     * @path /visits/{visitId}
-     */
     match /visits/{visitId} {
-      // Get: Owner or Admin
-      allow get: if isAdmin() || (resource != null && isOwner(resource.data.userId));
-      
-      // List: Admins can see all; Users can only see their own (enforced by query filters)
+      allow get: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
       allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100); 
-
-      // Create: User must set themselves as the owner
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-
-      // Update: Only the owner can update, and userId is immutable
-      allow update: if (resource != null && isOwner(resource.data.userId)) && request.resource.data.userId == resource.data.userId;
-
-      // Delete: Restricted to Admins
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
   }

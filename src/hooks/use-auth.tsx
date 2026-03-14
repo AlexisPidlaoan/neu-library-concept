@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // If it's a real user from Google, check domain
+        // Domain check for Google users
         if (firebaseUser.providerData.length > 0 && !firebaseUser.email?.endsWith('@neu.edu.ph')) {
           await signOut(auth);
           alert('Access denied. Only @neu.edu.ph accounts are allowed.');
@@ -72,16 +72,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else if (firebaseUser.providerData.length > 0) {
           // New Google User
           const newProfile = {
-            uid: firebaseUser.uid,
+            id: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
             photoURL: firebaseUser.photoURL,
             role: 'student',
             isBlocked: false,
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           };
           await setDoc(userDocRef, newProfile);
           setProfile(newProfile);
+          setUser(firebaseUser);
+        } else {
+          // Anonymous user without a doc yet - usually handled by loginWithId
           setUser(firebaseUser);
         }
       } else {
@@ -120,12 +124,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('This ID is blocked.');
       }
 
-      // In a real app, we'd sign in properly. 
-      // For this MVP, we simulate login by signing in anonymously if not already signed in,
-      // and linking the profile in state.
-      await signInAnonymously(auth);
+      // Sign in anonymously to create a session
+      const cred = await signInAnonymously(auth);
+      const sessionUser = cred.user;
+
+      // Link this anonymous session to the student profile
+      // We create a temporary user document for this anonymous UID
+      await setDoc(doc(db, 'users', sessionUser.uid), {
+        ...userData,
+        id: sessionUser.uid, // The ID for this session is the anonymous UID
+        lastLogin: serverTimestamp(),
+      });
+
       setProfile(userData);
-      // setUser is handled by onAuthStateChanged, but we override profile immediately
       router.push('/dashboard/check-in');
     } catch (error: any) {
       alert(error.message);
