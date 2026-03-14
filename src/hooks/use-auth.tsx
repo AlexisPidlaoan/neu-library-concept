@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -6,11 +7,14 @@ import {
   signInWithPopup, 
   signOut, 
   User, 
-  onIdTokenChanged
+  GoogleAuthProvider
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, googleProvider } from '@/lib/firebase';
+import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
+
+const { auth, firestore: db } = initializeFirebase();
+const googleProvider = new GoogleAuthProvider();
 
 interface AuthContextType {
   user: User | null;
@@ -35,16 +39,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        if (!user.email?.endsWith('@neu.edu.ph')) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        if (!firebaseUser.email?.endsWith('@neu.edu.ph')) {
           await signOut(auth);
           alert('Access denied. Only @neu.edu.ph accounts are allowed.');
+          setUser(null);
+          setProfile(null);
           setLoading(false);
           return;
         }
 
-        const userDocRef = doc(db, 'users', user.uid);
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
@@ -52,24 +58,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (userData.isBlocked) {
             await signOut(auth);
             alert('Your account is blocked. Please contact the administrator.');
+            setUser(null);
+            setProfile(null);
             setLoading(false);
             return;
           }
           setProfile(userData);
+          setUser(firebaseUser);
         } else {
           const newProfile = {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
             role: 'student',
             isBlocked: false,
-            createdAt: serverTimestamp(),
+            createdAt: new Date().toISOString(),
           };
           await setDoc(userDocRef, newProfile);
           setProfile(newProfile);
+          setUser(firebaseUser);
         }
-        setUser(user);
       } else {
         setUser(null);
         setProfile(null);

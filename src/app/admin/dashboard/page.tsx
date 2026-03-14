@@ -1,9 +1,10 @@
+
 "use client"
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { db } from '@/lib/firebase';
-import { collection, query, orderBy, getDocs, where, limit } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
+import { collection, query, orderBy, getDocs, where, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,19 +12,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { format, startOfDay, startOfWeek, startOfMonth, endOfDay } from 'date-fns';
-import { LayoutDashboard, Download, Search, Filter, Users, School, Calendar as CalendarIcon } from 'lucide-react';
+import { LayoutDashboard, Download, Search, Users, School, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { jsPDF } from "jspdf";
+import autoTable from 'jspdf-autotable';
+
+const { firestore: db } = initializeFirebase();
 
 export default function AdminDashboardPage() {
   const { profile } = useAuth();
   const [visits, setVisits] = useState<any[]>([]);
-  const [colleges, setColleges] = useState<any[]>([]);
+  const [colleges, setColleges] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState('today');
   const [collegeFilter, setCollegeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
       try {
         const collegeSnap = await getDocs(collection(db, 'colleges'));
         setColleges(collegeSnap.docs.map(doc => doc.data().name));
@@ -32,11 +39,11 @@ export default function AdminDashboardPage() {
         
         const now = new Date();
         if (timeFilter === 'today') {
-          q = query(q, where('timestamp', '>=', startOfDay(now)), where('timestamp', '<=', endOfDay(now)));
+          q = query(q, where('timestamp', '>=', Timestamp.fromDate(startOfDay(now))), where('timestamp', '<=', Timestamp.fromDate(endOfDay(now))));
         } else if (timeFilter === 'week') {
-          q = query(q, where('timestamp', '>=', startOfWeek(now)));
+          q = query(q, where('timestamp', '>=', Timestamp.fromDate(startOfWeek(now))));
         } else if (timeFilter === 'month') {
-          q = query(q, where('timestamp', '>=', startOfMonth(now)));
+          q = query(q, where('timestamp', '>=', Timestamp.fromDate(startOfMonth(now))));
         }
 
         const querySnapshot = await getDocs(q);
@@ -57,9 +64,9 @@ export default function AdminDashboardPage() {
 
   const filteredVisits = visits.filter(visit => {
     const matchesSearch = 
-      visit.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.purpose.toLowerCase().includes(searchTerm.toLowerCase());
+      (visit.userName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (visit.userEmail?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (visit.purpose?.toLowerCase() || "").includes(searchTerm.toLowerCase());
     const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
     return matchesSearch && matchesCollege;
   });
@@ -68,6 +75,36 @@ export default function AdminDashboardPage() {
     acc[visit.college] = (acc[visit.college] || 0) + 1;
     return acc;
   }, {});
+
+  const generatePDF = () => {
+    setIsExporting(true);
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.text("NEU Library Visitor Report", 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Generated on: ${format(new Date(), 'PPP p')}`, 14, 30);
+    doc.text(`Timeframe: ${timeFilter.toUpperCase()}`, 14, 37);
+    doc.text(`Total Visitors: ${filteredVisits.length}`, 14, 44);
+
+    // Table
+    const tableData = filteredVisits.map(v => [
+      v.userName,
+      v.college,
+      v.purpose,
+      format(v.date, 'MMM dd, yyyy HH:mm')
+    ]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Visitor Name', 'College', 'Purpose', 'Date & Time']],
+      body: tableData,
+    });
+
+    doc.save(`NEU_Library_Report_${timeFilter}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    setIsExporting(false);
+  };
 
   if (profile?.role !== 'admin') {
     return (
@@ -90,9 +127,14 @@ export default function AdminDashboardPage() {
           </h1>
           <p className="text-muted-foreground">Monitor and manage library visits across all colleges.</p>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Download className="h-4 w-4" />
-          Export Data
+        <Button 
+          variant="outline" 
+          className="gap-2" 
+          onClick={generatePDF} 
+          disabled={isExporting || filteredVisits.length === 0}
+        >
+          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Export PDF Report
         </Button>
       </div>
 
