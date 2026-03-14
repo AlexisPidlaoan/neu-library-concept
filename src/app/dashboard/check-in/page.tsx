@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -11,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle2, Loader2, Sparkles, BookOpen, User as UserIcon } from 'lucide-react';
+import { CheckCircle2, Loader2, Sparkles, BookOpen, User as UserIcon, Keyboard } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
@@ -76,10 +77,22 @@ const PROGRAMS_MAP: Record<string, string[]> = {
 
 const DEPARTMENTS = Object.keys(PROGRAMS_MAP);
 
+const COMMON_PURPOSES = [
+  "Study for Exams",
+  "Research / Thesis Work",
+  "Book Borrowing / Return",
+  "Group Project Meeting",
+  "Use Library Computers",
+  "Quiet Reading",
+  "Consult with Librarian",
+  "Other / Custom Purpose..."
+];
+
 export default function CheckInPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
-  const [purpose, setPurpose] = useState('');
+  const [purposeSelection, setPurposeSelection] = useState('');
+  const [customPurpose, setCustomPurpose] = useState('');
   const [college, setCollege] = useState('');
   const [program, setProgram] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -87,6 +100,8 @@ export default function CheckInPage() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const availablePrograms = college ? PROGRAMS_MAP[college] || [] : [];
+  const isCustomPurpose = purposeSelection === "Other / Custom Purpose...";
+  const finalPurpose = isCustomPurpose ? customPurpose : purposeSelection;
 
   useEffect(() => {
     // Reset program if college changes
@@ -95,22 +110,20 @@ export default function CheckInPage() {
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      // Only fetch if purpose has meaningful content or is being cleared
-      if (purpose.length >= 2 || purpose.length === 0) {
-        const result = await suggestPurpose({ partialPurpose: purpose });
+      if (isCustomPurpose && (customPurpose.length >= 2 || customPurpose.length === 0)) {
+        const result = await suggestPurpose({ partialPurpose: customPurpose });
         setSuggestions(result.suggestions);
       } else {
         setSuggestions([]);
       }
     };
-    // Increased debounce to 500ms to stay within AI quotas
     const debounce = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(debounce);
-  }, [purpose]);
+  }, [customPurpose, isCustomPurpose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !college || !purpose || (availablePrograms.length > 0 && !program)) {
+    if (!user || !college || !finalPurpose || (availablePrograms.length > 0 && !program)) {
       toast({
         variant: 'destructive',
         title: 'Missing information',
@@ -127,12 +140,13 @@ export default function CheckInPage() {
         userEmail: user.email,
         college,
         program,
-        purpose,
+        purpose: finalPurpose,
         timestamp: serverTimestamp(),
       });
       
       setShowSuccess(true);
-      setPurpose('');
+      setPurposeSelection('');
+      setCustomPurpose('');
       setCollege('');
       setProgram('');
       toast({
@@ -247,40 +261,59 @@ export default function CheckInPage() {
                 </div>
               )}
 
-              <div className="space-y-2 relative">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="purpose">Purpose of Visit</Label>
-                  <div className="flex items-center gap-1 text-xs text-accent font-medium">
-                    <Sparkles className="h-3 w-3" />
-                    AI Suggestions Enabled
-                  </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="purpose-select">Purpose of Visit</Label>
+                  <Select value={purposeSelection} onValueChange={setPurposeSelection}>
+                    <SelectTrigger id="purpose-select" className="h-12">
+                      <SelectValue placeholder="Select Reason for Visit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMMON_PURPOSES.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Input
-                  id="purpose"
-                  placeholder="e.g., Thesis Research, Exam Review..."
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  autoComplete="off"
-                  className="h-12"
-                />
-                {suggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2">
-                    <ul className="py-1">
-                      {suggestions.map((suggestion, index) => (
-                        <li key={index}>
+
+                {isCustomPurpose && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="custom-purpose" className="text-xs font-semibold text-primary flex items-center gap-1">
+                        <Keyboard className="h-3 w-3" />
+                        Specify Custom Purpose
+                      </Label>
+                      <div className="flex items-center gap-1 text-[10px] text-accent font-bold uppercase tracking-wider">
+                        <Sparkles className="h-3 w-3" />
+                        Smart Suggestions
+                      </div>
+                    </div>
+                    <Input
+                      id="custom-purpose"
+                      placeholder="e.g., Thesis Data Collection..."
+                      value={customPurpose}
+                      onChange={(e) => setCustomPurpose(e.target.value)}
+                      autoComplete="off"
+                      className="h-12 border-2 border-accent/20 focus:border-accent"
+                    />
+                    
+                    {suggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {suggestions.map((suggestion, index) => (
                           <button
+                            key={index}
                             type="button"
-                            className="w-full text-left px-4 py-3 text-sm hover:bg-accent/10 transition-colors border-b last:border-0"
                             onClick={() => {
-                              setPurpose(suggestion);
+                              setCustomPurpose(suggestion);
                               setSuggestions([]);
                             }}
+                            className="text-[11px] px-3 py-1.5 bg-slate-100 hover:bg-accent/10 hover:text-accent border rounded-full transition-all duration-200"
                           >
                             {suggestion}
                           </button>
-                        </li>
-                      ))}
-                    </ul>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -289,7 +322,7 @@ export default function CheckInPage() {
               <Button 
                 type="submit" 
                 className="w-full h-14 text-xl font-bold bg-primary hover:bg-primary/90 shadow-lg" 
-                disabled={isSubmitting || !college || !purpose || (availablePrograms.length > 0 && !program)}
+                disabled={isSubmitting || !college || !finalPurpose || (availablePrograms.length > 0 && !program)}
               >
                 {isSubmitting ? (
                   <>
