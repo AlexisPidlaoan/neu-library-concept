@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -61,7 +60,7 @@ export default function Home() {
       <nav className="border-b bg-white px-6 py-4 flex justify-between items-center sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <GraduationCap className="h-8 w-8 text-primary" />
-          <span className="font-bold text-2xl tracking-tight text-primary">StudyFlow</span>
+          <span className="font-bold text-2xl tracking-tight text-primary">NEU Library</span>
         </div>
         <Button variant="ghost" onClick={login} className="text-primary hover:bg-primary/5">
           Admin/Faculty Login
@@ -90,7 +89,7 @@ export default function Home() {
                 <div className="h-20 w-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                   <Nfc className="h-10 w-10 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold mb-2">NEU Library Terminal</h1>
+                <h1 className="text-3xl font-bold mb-2">Welcome to NEU Library</h1>
                 <p className="text-white/80">Tap your RFID ID or enter Student ID below</p>
               </div>
               <CardContent className="p-8 space-y-6">
@@ -143,7 +142,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5 text-primary" />
-            <span className="font-bold text-white">StudyFlow</span>
+            <span className="font-bold text-white">NEU Library</span>
           </div>
           <p className="text-xs">© {new Date().getFullYear()} New Era University Library. Terminal #001</p>
         </div>

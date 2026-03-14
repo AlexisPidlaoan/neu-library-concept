@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">StudyFlow</span>
+            <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Library</span>
           </div>
         </SidebarHeader>
         <SidebarContent className="px-2">

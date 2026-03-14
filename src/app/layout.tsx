@@ -4,7 +4,7 @@ import { AuthProvider } from '@/hooks/use-auth';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'StudyFlow | NEU Library Visit System',
+  title: 'NEU Library | Visit System',
   description: 'Manage and log your library visits at New Era University.',
 };
 
