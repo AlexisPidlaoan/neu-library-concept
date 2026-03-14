@@ -79,7 +79,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isAdminEmail = firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email);
 
           if (userDoc.exists()) {
-            let userData = userDoc.data();
+            // CRITICAL FIX: Ensure the document ID is included in the profile data
+            let userData = { id: firebaseUser.uid, ...userDoc.data() };
             
             if (userData.isBlocked) {
               await signOut(auth);
@@ -134,7 +135,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (e: any) {
         console.error("Auth sync error:", e);
-        // We don't sign out here so the user can at least see the guest UI or retry
       } finally {
         setLoading(false);
       }
@@ -170,7 +170,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      const userData = querySnapshot.docs[0].data();
+      const userData = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
       if (userData.isBlocked) throw new Error('Student ID is blocked.');
 
       setProfile(userData);
