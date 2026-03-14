@@ -90,7 +90,7 @@ export default function AdminDashboardPage() {
         setVisits(fetchedVisits);
       } catch (err: any) {
         console.error("Dashboard Data Fetch Error:", err);
-        setError(err.message || "Failed to load dashboard data. Please ensure database indexes are ready.");
+        setError("Failed to load dashboard data. Please ensure database indexes are ready.");
       } finally {
         setLoading(false);
       }
