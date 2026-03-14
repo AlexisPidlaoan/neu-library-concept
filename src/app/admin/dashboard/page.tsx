@@ -12,15 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay } from 'date-fns';
-import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen, GraduationCap, PieChart as PieChartIcon } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { ChartContainer } from "@/components/ui/chart";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 const { firestore: db } = initializeFirebase();
+
+const CHART_COLORS = ['#003399', '#00A859', '#FFD54F', '#ED1C24', '#9EB2BF'];
 
 export default function AdminDashboardPage() {
   const { profile } = useAuth();
@@ -118,10 +119,13 @@ export default function AdminDashboardPage() {
     });
   }, [filteredVisits, timeFilter]);
 
-  const collegeStats = filteredVisits.reduce((acc: any, visit) => {
-    acc[visit.college] = (acc[visit.college] || 0) + 1;
-    return acc;
-  }, {});
+  const collegeStats = useMemo(() => {
+    const stats = filteredVisits.reduce((acc: any, visit) => {
+      acc[visit.college] = (acc[visit.college] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(stats).map(([name, value]) => ({ name, value }));
+  }, [filteredVisits]);
 
   const programStats = filteredVisits.reduce((acc: any, visit) => {
     acc[visit.program] = (acc[visit.program] || 0) + 1;
@@ -134,7 +138,7 @@ export default function AdminDashboardPage() {
   }, {});
 
   const topPurpose = Object.keys(purposeStats).sort((a, b) => purposeStats[b] - purposeStats[a])[0] || 'N/A';
-  const topCollege = Object.keys(collegeStats).sort((a, b) => collegeStats[b] - collegeStats[a])[0] || 'N/A';
+  const topCollege = collegeStats.sort((a: any, b: any) => b.value - a.value)[0]?.name || 'N/A';
   const topProgram = Object.keys(programStats).sort((a, b) => programStats[b] - programStats[a])[0] || 'N/A';
 
   const generatePDF = () => {
@@ -214,51 +218,51 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-4xl font-bold">{filteredVisits.length}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm bg-white">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <School className="h-4 w-4 text-primary" />
+              <School className="h-4 w-4 text-[#00A859]" />
               Top Department
             </CardDescription>
-            <CardTitle className="text-lg font-bold truncate">
+            <CardTitle className="text-lg font-bold truncate text-primary">
               {topCollege}
             </CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm bg-white">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-accent" />
+              <GraduationCap className="h-4 w-4 text-[#FFD54F]" />
               Top Program
             </CardDescription>
-            <CardTitle className="text-lg font-bold truncate">
+            <CardTitle className="text-lg font-bold truncate text-primary">
               {topProgram}
             </CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm bg-white">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-success" />
+              <TrendingUp className="h-4 w-4 text-[#ED1C24]" />
               Daily Average
             </CardDescription>
-            <CardTitle className="text-2xl font-bold">
+            <CardTitle className="text-2xl font-bold text-primary">
               {filteredVisits.length > 0 ? (filteredVisits.length / trendData.length).toFixed(1) : 0}
             </CardTitle>
           </CardHeader>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-none shadow-lg">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <Card className="lg:col-span-8 border-none shadow-lg bg-white">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
+              <TrendingUp className="h-5 w-5 text-[#003399]" />
               Visitor Traffic Trend
             </CardTitle>
             <CardDescription>Visualizing entries over the selected timeframe.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px] w-full pt-4">
+          <CardContent className="h-[350px] w-full pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -278,13 +282,58 @@ export default function AdminDashboardPage() {
                     return null;
                   }}
                 />
-                <Bar dataKey="visitors" fill="#396EAD" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="visitors" fill="#003399" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg">
+        <Card className="lg:col-span-4 border-none shadow-lg bg-white">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <PieChartIcon className="h-5 w-5 text-[#00A859]" />
+              Department Distribution
+            </CardTitle>
+            <CardDescription>Breakdown by college department.</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[350px] w-full pt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={collegeStats}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {collegeStats.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-white p-2 border rounded-md shadow-lg text-[10px]">
+                          <p className="font-bold">{payload[0].name}</p>
+                          <p className="text-primary">{payload[0].value} visits</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <Card className="lg:col-span-1 border-none shadow-lg bg-white h-fit">
           <CardHeader>
             <CardTitle className="text-lg">Quick Filters</CardTitle>
             <CardDescription>Refine your statistics.</CardDescription>
@@ -293,7 +342,7 @@ export default function AdminDashboardPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Time Interval</label>
               <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger className="w-full bg-slate-50">
+                <SelectTrigger className="w-full bg-slate-50 border-primary/10">
                   <SelectValue placeholder="Timeframe" />
                 </SelectTrigger>
                 <SelectContent>
@@ -307,7 +356,7 @@ export default function AdminDashboardPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Department Filter</label>
               <Select value={collegeFilter} onValueChange={setCollegeFilter}>
-                <SelectTrigger className="w-full bg-slate-50">
+                <SelectTrigger className="w-full bg-slate-50 border-primary/10">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
@@ -324,7 +373,7 @@ export default function AdminDashboardPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Name, program, or purpose" 
-                  className="pl-10 bg-slate-50"
+                  className="pl-10 bg-slate-50 border-primary/10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -332,63 +381,63 @@ export default function AdminDashboardPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      <Card className="border-none shadow-lg">
-        <CardHeader className="border-b bg-slate-50/50">
-          <CardTitle className="text-lg">Detailed Entry Log</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Visitor</TableHead>
-                  <TableHead>Dept / Program</TableHead>
-                  <TableHead>Purpose</TableHead>
-                  <TableHead>Time Entry</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={4}><div className="h-12 w-full bg-slate-50 animate-pulse rounded"></div></TableCell>
-                    </TableRow>
-                  ))
-                ) : filteredVisits.length > 0 ? (
-                  filteredVisits.map((visit) => (
-                    <TableRow key={visit.id}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-semibold">{visit.userName}</span>
-                          <span className="text-xs text-muted-foreground">{visit.userEmail}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant="outline" className="font-normal w-fit text-[10px]">{visit.college}</Badge>
-                          <span className="text-xs text-muted-foreground italic line-clamp-1">{visit.program}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate font-medium text-slate-700">{visit.purpose}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(visit.date, 'MMM dd, yyyy HH:mm')}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
+        <Card className="lg:col-span-3 border-none shadow-lg bg-white overflow-hidden">
+          <CardHeader className="border-b bg-slate-50/50">
+            <CardTitle className="text-lg">Detailed Entry Log</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
-                      No matching records found.
-                    </TableCell>
+                    <TableHead>Visitor</TableHead>
+                    <TableHead>Dept / Program</TableHead>
+                    <TableHead>Purpose</TableHead>
+                    <TableHead>Time Entry</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={4}><div className="h-12 w-full bg-slate-50 animate-pulse rounded"></div></TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredVisits.length > 0 ? (
+                    filteredVisits.map((visit) => (
+                      <TableRow key={visit.id}>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-semibold">{visit.userName}</span>
+                            <span className="text-xs text-muted-foreground">{visit.userEmail}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="font-normal w-fit text-[10px] border-[#003399] text-[#003399]">{visit.college}</Badge>
+                            <span className="text-xs text-muted-foreground italic line-clamp-1">{visit.program}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate font-medium text-slate-700">{visit.purpose}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {format(visit.date, 'MMM dd, yyyy HH:mm')}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
+                        No matching records found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
