@@ -40,6 +40,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'User Management', icon: Users, href: '/admin/users' },
   ];
 
+  // Only show Student View button if the admin is also a registered student
+  const isAlsoStudent = !!profile?.studentId;
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon" className="border-r shadow-sm">
@@ -71,14 +74,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </SidebarMenuItem>
             ))}
 
-            <div className="mt-4 px-4">
-              <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2">
-                <Link href="/dashboard/check-in">
-                  <LogIn className="h-3 w-3" />
-                  Student View
-                </Link>
-              </Button>
-            </div>
+            {isAlsoStudent && (
+              <div className="mt-4 px-4">
+                <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2">
+                  <Link href="/dashboard/check-in">
+                    <LogIn className="h-3 w-3" />
+                    Student View
+                  </Link>
+                </Button>
+              </div>
+            )}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="p-4">
@@ -100,12 +105,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/check-in" className="cursor-pointer">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Student Check-in
-                </Link>
-              </DropdownMenuItem>
+              {isAlsoStudent && (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/check-in" className="cursor-pointer">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Student Check-in
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out

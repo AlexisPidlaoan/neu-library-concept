@@ -9,6 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, logout } = useAuth();
@@ -42,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarHeader className="p-4">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
-              < GraduationCap className="h-5 w-5 text-white" />
+              <GraduationCap className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Library</span>
           </Link>
@@ -137,4 +138,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </SidebarProvider>
   );
 }
-import { Button } from '@/components/ui/button';
