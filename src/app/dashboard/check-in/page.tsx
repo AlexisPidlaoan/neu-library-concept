@@ -123,7 +123,7 @@ export default function CheckInPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !college || !finalPurpose || (availablePrograms.length > 0 && !program)) {
+    if (!profile || !college || !finalPurpose || (availablePrograms.length > 0 && !program)) {
       toast({
         variant: 'destructive',
         title: 'Missing information',
@@ -134,10 +134,12 @@ export default function CheckInPage() {
 
     setIsSubmitting(true);
     
+    // CRITICAL: We use profile.id as the persistent identifier so history works
+    // even if the user logs in via Student ID (Anonymous Auth) in the future.
     const visitData = {
-      userId: user.uid,
-      userName: user.displayName || 'Visitor',
-      userEmail: user.email,
+      userId: profile.id,
+      userName: profile.displayName || 'Visitor',
+      userEmail: profile.email,
       college,
       program,
       purpose: finalPurpose,
@@ -182,12 +184,12 @@ export default function CheckInPage() {
       <Card className="border-none shadow-lg bg-primary text-white overflow-hidden">
         <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 border-4 border-white/20">
-            <AvatarImage src={user?.photoURL || ''} />
-            <AvatarFallback className="text-2xl bg-white/10">{user?.displayName?.charAt(0) || user?.email?.charAt(0)}</AvatarFallback>
+            <AvatarImage src={profile?.photoURL || ''} />
+            <AvatarFallback className="text-2xl bg-white/10">{profile?.displayName?.charAt(0) || profile?.email?.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="text-center md:text-left">
-            <h2 className="text-3xl font-bold mb-1">{user?.displayName || 'Student'}</h2>
-            <p className="text-white/80 text-lg mb-2">{user?.email}</p>
+            <h2 className="text-3xl font-bold mb-1">{profile?.displayName || 'Student'}</h2>
+            <p className="text-white/80 text-lg mb-2">{profile?.email}</p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
               <Badge variant="secondary" className="bg-white/20 text-white border-none px-3 py-1">
                 <UserIcon className="h-3 w-3 mr-1" />

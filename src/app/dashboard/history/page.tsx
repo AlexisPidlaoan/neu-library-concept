@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from 'react';
@@ -14,17 +15,19 @@ import { Input } from '@/components/ui/input';
 const { firestore: db } = initializeFirebase();
 
 export default function HistoryPage() {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
 
   const visitsQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    // CRITICAL: We query by profile.id (which is the persistent Google UID)
+    // instead of user.uid (which is transient for anonymous terminal sessions)
+    if (!profile?.id) return null;
     return query(
       collection(db, 'visits'),
-      where('userId', '==', user.uid),
+      where('userId', '==', profile.id),
       orderBy('timestamp', 'desc')
     );
-  }, [user?.uid]);
+  }, [profile?.id]);
 
   const { data: visits, isLoading: loading } = useCollection(visitsQuery);
 

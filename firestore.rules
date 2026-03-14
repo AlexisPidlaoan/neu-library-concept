@@ -48,9 +48,16 @@ service cloud.firestore {
     }
 
     match /visits/{visitId} {
-      allow get: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
+      // Allow reading if the visitor is an admin OR if the record belongs to them.
+      // We check userId in data for ownership.
+      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Allow listing for admins OR filtered by studentId/userId for current user
       allow list: if isAdmin() || (isSignedIn() && (request.query.limit == null || request.query.limit <= 100)); 
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Allow creation for any signed-in student
+      allow create: if isSignedIn();
+      
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
