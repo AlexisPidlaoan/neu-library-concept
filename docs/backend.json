@@ -130,7 +130,8 @@
   },
   "auth": {
     "providers": [
-      "google.com"
+      "google.com",
+      "anonymous"
     ]
   },
   "firestore": {
