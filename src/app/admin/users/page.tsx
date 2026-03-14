@@ -1,9 +1,10 @@
+
 "use client"
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, orderBy, writeBatch, setDoc } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,15 +12,28 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Search, ShieldAlert, ShieldCheck, Loader2, Edit3, Check, X } from 'lucide-react';
+import { Users, Search, ShieldAlert, ShieldCheck, Loader2, Edit3, Check, X, DatabaseBackup } from 'lucide-react';
 
 const { firestore: db } = initializeFirebase();
+
+const SAMPLE_STUDENTS = [
+  { id: 'sample-s1', displayName: 'Juan Dela Cruz', email: 'juan.delacruz@neu.edu.ph', studentId: '21-12345-678', role: 'student' },
+  { id: 'sample-s2', displayName: 'Maria Clara', email: 'maria.clara@neu.edu.ph', studentId: '22-54321-098', role: 'student' },
+  { id: 'sample-s3', displayName: 'Jose Rizal', email: 'jose.rizal@neu.edu.ph', studentId: '19-11111-222', role: 'student' }
+];
+
+const SAMPLE_ADMINS = [
+  { id: 'sample-a1', displayName: 'Alexis Pidlaoan', email: 'alexis.pidlaoan@neu.edu.ph', role: 'admin' },
+  { id: 'sample-a2', displayName: 'Library Supervisor', email: 'admin.library@neu.edu.ph', role: 'admin' },
+  { id: 'sample-a3', displayName: 'Library Assistant', email: 'staff.library@neu.edu.ph', role: 'admin' }
+];
 
 export default function UserManagementPage() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,6 +54,32 @@ export default function UserManagementPage() {
       setLoading(false);
     }
   }
+
+  const handleSeedData = async () => {
+    setIsSeeding(true);
+    try {
+      const batch = writeBatch(db);
+      const now = new Date().toISOString();
+
+      [...SAMPLE_STUDENTS, ...SAMPLE_ADMINS].forEach(u => {
+        const userRef = doc(db, 'users', u.id);
+        batch.set(userRef, {
+          ...u,
+          isBlocked: false,
+          createdAt: now,
+          updatedAt: now
+        }, { merge: true });
+      });
+
+      await batch.commit();
+      toast({ title: 'Database Populated', description: 'Sample students and admins have been added.' });
+      fetchUsers();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Seed Failed', description: 'Could not populate sample data.' });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const formatStudentId = (value: string) => {
     const digits = value.replace(/\D/g, "");
@@ -110,14 +150,25 @@ export default function UserManagementPage() {
           </h1>
           <p className="text-muted-foreground">Search and manage all registered user accounts.</p>
         </div>
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search by name, email or ID..." 
-            className="pl-10 bg-white"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button 
+            variant="outline" 
+            onClick={handleSeedData} 
+            disabled={isSeeding}
+            className="gap-2 border-primary/20 hover:bg-primary/5 text-primary"
+          >
+            {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />}
+            Seed Sample Data
+          </Button>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search users..." 
+              className="pl-10 bg-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -147,7 +198,9 @@ export default function UserManagementPage() {
                     <TableCell>
                       <Avatar className="h-10 w-10 border">
                         <AvatarImage src={user.photoURL} />
-                        <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="bg-primary/5 text-primary uppercase">
+                          {user.displayName?.charAt(0)}
+                        </AvatarFallback>
                       </Avatar>
                     </TableCell>
                     <TableCell>
@@ -245,7 +298,7 @@ export default function UserManagementPage() {
       
       {!loading && (
         <p className="mt-4 text-sm text-muted-foreground text-center">
-          Showing {filteredUsers.length} of {users.length} registered accounts
+          Showing {filteredUsers.length} of {users.length} accounts
         </p>
       )}
     </div>

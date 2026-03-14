@@ -1,45 +1,44 @@
+
 {
   "entities": {
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the StudyFlow application, including students and administrators. Authentication details are managed externally via Google Sign-In.",
+      "description": "Represents a user of the NEU Library system, including students and administrators.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
+          "description": "Unique identifier for the User entity (Google UID)."
         },
         "email": {
           "type": "string",
-          "description": "The institutional email address of the user (e.g., @neu.edu.ph), obtained from Google Sign-In.",
+          "description": "Institutional email address (@neu.edu.ph).",
           "format": "email"
         },
         "displayName": {
           "type": "string",
-          "description": "The full name or display name of the user, obtained from Google Sign-In."
+          "description": "The full name of the user."
         },
-        "photoUrl": {
+        "studentId": {
           "type": "string",
-          "description": "URL to the user's profile picture, if available from Google Sign-In.",
-          "format": "uri"
+          "description": "The formatted student ID (XX-XXXXX-XXX)."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["student", "admin"],
+          "description": "User role within the system."
         },
         "isBlocked": {
           "type": "boolean",
-          "description": "Indicates whether the user's access to the application is currently blocked by an administrator."
-        },
-        "isAdmin": {
-          "type": "boolean",
-          "description": "Indicates whether the user has administrative privileges for the application."
+          "description": "Indicates if the user is blocked from entry."
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when the user account record was first created in the system.",
           "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp when the user account information was last updated.",
           "format": "date-time"
         }
       },
@@ -47,95 +46,48 @@
         "id",
         "email",
         "displayName",
-        "isBlocked",
-        "isAdmin",
-        "createdAt",
-        "updatedAt"
+        "role",
+        "isBlocked"
       ]
     },
-    "College": {
+    "Visit": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "College",
+      "title": "Visit",
       "type": "object",
-      "description": "Represents a college or department that users can select when logging a library visit.",
+      "description": "Records a single library visit entry.",
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Unique identifier for the College entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the college (e.g., College of Engineering)."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the college entry was first created in the system.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the college entry was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "VisitLog": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "VisitLog",
-      "type": "object",
-      "description": "Records a single instance of a user's visit to the library, including their purpose, associated college, and check-in/out timestamps.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the VisitLog entity."
+          "type": "string"
         },
         "userId": {
-          "type": "string",
-          "description": "Reference to the User who made the visit. (Relationship: User 1:N VisitLog)"
+          "type": "string"
         },
-        "collegeId": {
-          "type": "string",
-          "description": "Reference to the College selected by the user for this visit. (Relationship: College 1:N VisitLog)"
+        "userName": {
+          "type": "string"
         },
-        "purposeOfVisit": {
-          "type": "string",
-          "description": "The stated purpose or reason for the user's library visit."
+        "userEmail": {
+          "type": "string"
         },
-        "checkInTime": {
-          "type": "string",
-          "description": "Timestamp marking when the user checked into the library.",
-          "format": "date-time"
+        "college": {
+          "type": "string"
         },
-        "checkOutTime": {
-          "type": "string",
-          "description": "Optional timestamp marking when the user checked out of the library.",
-          "format": "date-time"
+        "program": {
+          "type": "string"
         },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when this visit log entry was created in the system.",
-          "format": "date-time"
+        "purpose": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "object",
+          "description": "Firestore server timestamp."
         }
       },
-      "required": [
-        "id",
-        "userId",
-        "collegeId",
-        "purposeOfVisit",
-        "checkInTime",
-        "createdAt"
-      ]
+      "required": ["userId", "userName", "college", "purpose", "timestamp"]
     }
   },
   "auth": {
     "providers": [
-      "password",
+      "google.com",
       "anonymous"
     ]
   },
@@ -148,13 +100,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores core profile information for all users (students and administrators). Access to an individual user's document is restricted to the user themselves for most fields, and to administrators for management fields like 'isBlocked' and 'isAdmin'. Administrators can list all user profiles.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user, matching 'request.auth.uid'."
-            }
-          ]
+          "description": "User profiles for students and admins."
         }
       },
       {
@@ -164,68 +110,26 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "This collection explicitly defines users with global administrative privileges. The *existence* of a document at `/admins/{request.auth.uid}` is the sole determinant of admin status, adhering to the DBAC principle of 'existence over content'. This ensures Authorization Independence for role checks. Updates to this collection (adding/removing admins) are restricted to existing administrators.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user who is an administrator."
-            }
-          ]
+          "description": "Role-marker collection for admin privileges."
+        }
+      },
+      {
+        "path": "/visits/{visitId}",
+        "definition": {
+          "entityName": "Visit",
+          "schema": {
+            "$ref": "#/backend/entities/Visit"
+          },
+          "description": "Global log of all library visits."
         }
       },
       {
         "path": "/colleges/{collegeId}",
         "definition": {
           "entityName": "College",
-          "schema": {
-            "$ref": "#/backend/entities/College"
-          },
-          "description": "Contains a list of all colleges or departments that users can select during a library visit. All authenticated users can read these documents for dropdowns, but only administrators have privileges to create, update, or delete college entries. This segregation ensures QAPs for listing available colleges.",
-          "params": [
-            {
-              "name": "collegeId",
-              "description": "The unique ID of the college."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/visitLogs/{visitLogId}",
-        "definition": {
-          "entityName": "VisitLog",
-          "schema": {
-            "$ref": "#/backend/entities/VisitLog"
-          },
-          "description": "A top-level collection that mirrors all library visit logs. This collection is specifically designed for the 'Admin All Visits Dashboard' and allows administrators to securely list, search, and filter all visit entries across all users and colleges without performing inefficient collection group queries or violating Authorization Independence. Documents in this collection include denormalized 'userId' and 'collegeId' fields. Writes to this collection are typically handled in conjunction with the subcollection write (e.g., via a Cloud Function or a batched client write, secured by rules).",
-          "params": [
-            {
-              "name": "visitLogId",
-              "description": "The unique ID of the visit log entry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/visitLogs/{visitLogId}",
-        "definition": {
-          "entityName": "VisitLog",
-          "schema": {
-            "$ref": "#/backend/entities/VisitLog"
-          },
-          "description": "Stores the individual visit log entries for each user, providing a dedicated and secure path for users to access their 'Personal Visit History'. Access is strictly path-based: `request.auth.uid` must match `{userId}` for creating, reading, updating, or deleting entries, ensuring strong ownership and simple security rules. This structure fully supports QAPs for personal visit history.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user who owns this visit log history."
-            },
-            {
-              "name": "visitLogId",
-              "description": "The unique ID of the visit log entry."
-            }
-          ]
+          "description": "List of available university departments."
         }
       }
-    ],
-    "reasoning": "The Firestore data structure for StudyFlow prioritizes security, scalability, and debuggability by strictly adhering to the mandated design principles, especially Authorization Independence and QAPs (Queries Are Not Filters).\n\n**Core Design Justification:**\n\n1.  **User Management (`/users/{userId}` and `/admins/{userId}`):**\n    *   The `/users/{userId}` collection stores individual user profiles, including fields like `isBlocked` and `isAdmin`. Basic profile fields are readable/writable by the owning user (`request.auth.uid == userId`). Admin-specific fields like `isBlocked` are writable only by administrators.\n    *   To ensure **Authorization Independence** and robust DBAC (Database Access Control), global admin status is determined by the *existence* of a document in the dedicated `/admins/{userId}` collection. This pattern (`exists(/databases/$(database)/documents/admins/$(request.auth.uid))`) is highly efficient and avoids complex `get()` calls or custom claims for role checks. The `isAdmin` field in the `/users/{userId}` document acts as a denormalized flag for UI convenience, but the `/admins/{userId}` collection is the source of truth for security rules.\n    *   This structure facilitates **QAPs** for Admin User Management, allowing administrators to securely list all users from `/users`.\n\n2.  **College Management (`/colleges/{collegeId}`):**\n    *   This top-level collection holds all college entries. It has a homogeneous security posture: all authenticated users can read college data (for dropdowns), but only administrators can create, update, or delete entries. This ensures **QAPs** for listing available colleges efficiently for all users and clear administrative control.\n\n3.  **Visit Log Management (Dual Collection Strategy for QAPs and Authorization Independence):**\n    *   **Authorization Independence & QAPs for Personal History (`/users/{userId}/visitLogs/{visitLogId}`):** Each user's personal visit history is stored as a subcollection under their user document (`/users/{userId}/visitLogs/{visitLogId}`). This design leverages **Hierarchical Paths for User-Owned Data** (**Strategy C.2 & C.3**), ensuring strong, path-based ownership. Rules are simple: `request.auth.uid == userId`. This allows users to `list` their own history efficiently and securely, fully supporting **QAPs** for personal data.\n    *   **Authorization Independence & QAPs for Admin Dashboard (`/visitLogs/{visitLogId}`):** To enable the 'Admin All Visits Dashboard' while strictly adhering to **QAPs** and **Authorization Independence**, a top-level `/visitLogs/{visitLogId}` collection is introduced. This collection mirrors all visit logs created by users. Each document in this collection includes denormalized `userId` and `collegeId` (and potentially `userName`, `collegeName`) from the original `VisitLog` and `User` entities. This allows administrators to perform `list` operations, searches, and filters across *all* visit logs globally without needing to traverse subcollections or make `get()` calls to parent user documents in security rules. This is a critical denormalization strategy (**Strategy A**) that makes admin queries simple, scalable, and secure. Writes to this collection would typically occur in a batched operation alongside the subcollection write, or via a Cloud Function, ensuring data consistency.\n\n**Summary of Adherence to Principles:**\n*   **Authorization Independence:** Achieved by using dedicated role collections (`/admins`) and denormalizing `userId`/`collegeId` into the top-level `/visitLogs` collection, and using path-based ownership for `/users/{userId}/visitLogs`.\n*   **Clarity of Intent:** The structure explicitly segregates data based on access needs (e.g., admin-only `/admins`, user-owned `/users/{userId}/visitLogs`, admin-view `/visitLogs`).\n*   **DBAC:** Admin roles are database-driven via `/admins/{userId}`.\n*   **QAPs:** The dual `VisitLog` structure allows secure and efficient `list` operations for both individual users and administrators, avoiding rules as filters. `/colleges` and `/users` also support QAPs.\n*   **Structural Segregation:** Collections are designed so that all documents within them share the same security posture.\n*   **Radical Consistency:** Consistent naming (`userId`, `collegeId`) and clear wildcards are used throughout.\n\n**Note on Server Connection:** As an AI, I cannot directly check your Firebase server connection or populate a live database. You will need to implement this structure in your Firestore project and manage initial data population (e.g., creating initial admin users and colleges) through your application's deployment or administrative tools. The structure provided is a blueprint for your database schema and security rules."
+    ]
   }
 }
