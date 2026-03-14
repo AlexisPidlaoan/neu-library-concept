@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState } from 'react';
@@ -136,11 +137,14 @@ export default function UserManagementPage() {
     }
   };
 
-  const filteredUsers = users.filter(user => 
-    user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.studentId?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(user => {
+    const searchLow = searchTerm.toLowerCase();
+    return (
+      (user.displayName?.toLowerCase() || "").includes(searchLow) ||
+      (user.email?.toLowerCase() || "").includes(searchLow) ||
+      (user.studentId?.toLowerCase() || "").includes(searchLow)
+    );
+  });
 
   if (profile?.role !== 'admin') return <div className="p-8">Access Denied</div>;
 

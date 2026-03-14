@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo } from 'react';
@@ -33,12 +34,15 @@ export default function HistoryPage() {
   const processedVisits = useMemo(() => {
     if (!visits) return [];
 
-    // 1. Filter by search term
-    const filtered = visits.filter(visit => 
-      visit.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.college.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (visit.program?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-    );
+    // 1. Filter by search term with safe null checks
+    const filtered = visits.filter(visit => {
+      const searchLow = searchTerm.toLowerCase();
+      return (
+        (visit.purpose?.toLowerCase() || "").includes(searchLow) ||
+        (visit.college?.toLowerCase() || "").includes(searchLow) ||
+        (visit.program?.toLowerCase() || "").includes(searchLow)
+      );
+    });
 
     // 2. Sort by timestamp descending (newest first)
     return filtered.sort((a, b) => {
