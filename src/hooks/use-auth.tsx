@@ -13,6 +13,7 @@ import {
 import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/hooks/use-toast';
 
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
@@ -45,13 +46,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Domain check for Google users
-        if (firebaseUser.providerData.length > 0 && !firebaseUser.email?.endsWith('@neu.edu.ph')) {
-          await signOut(auth);
-          alert('Access denied. Only @neu.edu.ph accounts are allowed.');
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
+        if (firebaseUser.providerData.length > 0 && firebaseUser.providerData[0].providerId === 'google.com') {
+          if (!firebaseUser.email?.endsWith('@neu.edu.ph')) {
+            await signOut(auth);
+            toast({
+              variant: 'destructive',
+              title: 'Invalid Institutional Email',
+              description: 'Access denied. You must use your official @neu.edu.ph institutional Google account to log in.',
+            });
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
         }
 
         const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -61,7 +68,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const userData = userDoc.data();
           if (userData.isBlocked) {
             await signOut(auth);
-            alert('Your account is blocked. Please contact the administrator.');
+            toast({
+              variant: 'destructive',
+              title: 'Access Blocked',
+              description: 'Your account has been blocked by an administrator. Please contact the library staff.',
+            });
             setUser(null);
             setProfile(null);
             setLoading(false);
@@ -85,7 +96,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setProfile(newProfile);
           setUser(firebaseUser);
         } else {
-          // Anonymous user without a doc yet - usually handled by loginWithId
+          // Anonymous user session
           setUser(firebaseUser);
         }
       } else {
@@ -102,8 +113,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: error.message || 'Failed to sign in with Google.',
+      });
     } finally {
       setLoading(false);
     }
@@ -116,12 +132,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        throw new Error('ID not found. Please register or see an admin.');
+        throw new Error('Student ID not found. Please register or consult a librarian.');
       }
 
       const userData = querySnapshot.docs[0].data();
       if (userData.isBlocked) {
-        throw new Error('This ID is blocked.');
+        throw new Error('This Student ID is currently blocked from entering the library.');
       }
 
       // Sign in anonymously to create a session
@@ -129,17 +145,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const sessionUser = cred.user;
 
       // Link this anonymous session to the student profile
-      // We create a temporary user document for this anonymous UID
       await setDoc(doc(db, 'users', sessionUser.uid), {
         ...userData,
-        id: sessionUser.uid, // The ID for this session is the anonymous UID
+        id: sessionUser.uid,
         lastLogin: serverTimestamp(),
       });
 
       setProfile(userData);
       router.push('/dashboard/check-in');
     } catch (error: any) {
-      alert(error.message);
+      toast({
+        variant: 'destructive',
+        title: 'Terminal Login Failed',
+        description: error.message,
+      });
     } finally {
       setLoading(false);
     }
