@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X, UserPlus } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X, UserPlus, User } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Home() {
-  const { profile, login, loginWithId, loading, pendingStudentId, cancelLinking } = useAuth();
+  const { profile, login, loginWithId, continueAsGuest, loading, pendingStudentId, cancelLinking } = useAuth();
   const router = useRouter();
   const [studentId, setStudentId] = useState('');
   const idInputRef = useRef<HTMLInputElement>(null);
@@ -89,7 +89,7 @@ export default function Home() {
                 src={heroImage.imageUrl} 
                 alt={heroImage.description} 
                 fill 
-                className="object-cover opacity-80"
+                className="object-cover opacity-60"
                 priority
                 data-ai-hint={heroImage.imageHint}
               />
@@ -113,9 +113,9 @@ export default function Home() {
 
                   <Alert className="bg-slate-50 border-primary/20">
                     <AlertCircle className="h-4 w-4 text-primary" />
-                    <AlertTitle>Google Login Bypassed</AlertTitle>
+                    <AlertTitle>Institutional Verification</AlertTitle>
                     <AlertDescription>
-                      You can register this ID by linking your official account, or go back to try a different ID.
+                      Link your account for faster check-ins, or continue as a guest for this visit.
                     </AlertDescription>
                   </Alert>
 
@@ -129,18 +129,26 @@ export default function Home() {
                     </Button>
                     <Button 
                       variant="outline" 
-                      onClick={cancelLinking} 
-                      className="w-full h-12 text-primary gap-2 border-primary/20"
+                      onClick={continueAsGuest} 
+                      className="w-full h-12 text-[#00A859] font-bold gap-2 border-[#00A859]/20 hover:bg-[#00A859]/5"
                     >
-                      <X className="h-4 w-4" />
-                      Try Different ID
+                      <User className="h-4 w-4" />
+                      Continue as Guest
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={cancelLinking} 
+                      className="w-full text-slate-500 text-xs"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel and Try Different ID
                     </Button>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="bg-primary p-8 text-white text-center">
-                    <div className="h-20 w-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                    <div className="h-20 w-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Nfc className="h-10 w-10 text-white" />
                     </div>
                     <h1 className="text-3xl font-bold mb-2">Welcome to NEU Library</h1>
