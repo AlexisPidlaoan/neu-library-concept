@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -70,6 +69,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
+          // Optimization: Skip refetching if user hasn't changed
           if (profileFetchedRef.current === firebaseUser.uid && profile && !isTerminalSession.current) {
             setUser(firebaseUser);
             setLoading(false);
@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isAdminEmail = !!(email && ADMIN_EMAILS.includes(email));
           const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com');
 
-          // Allow email/pass users for admins even if not Google provider
+          // Restrict standard Google users to institutional domain
           if (isGoogleUser && !isInstitutional && !isAdminEmail) {
             await signOut(auth);
             toast({
@@ -98,6 +98,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           setUser(firebaseUser);
 
+          // If we are in a terminal session and already have a profile, don't refetch
           if (isTerminalSession.current && profile) {
             setLoading(false);
             return;
@@ -121,6 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               return;
             }
 
+            // Ensure Admin role is synchronized for authorized emails
             if (isAdminEmail && userData.role !== 'admin') {
               await updateDoc(userDocRef, { role: 'admin', updatedAt: serverTimestamp() });
               userData.role = 'admin';
@@ -130,6 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(userData);
             profileFetchedRef.current = firebaseUser.uid;
           } else {
+            // New User Profile Creation
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -153,6 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         } else {
           setUser(null);
+          // Only clear profile if it wasn't a transient terminal session
           if (!isTerminalSession.current) {
             setProfile(null);
             profileFetchedRef.current = null;
@@ -184,16 +188,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     isTerminalSession.current = false;
     
-    // Handle "admin" shorthand
+    // Normalize email shorthand
     const finalEmail = email.toLowerCase() === 'admin' ? 'admin@neu.edu.ph' : email;
 
     try {
       await signInWithEmailAndPassword(auth, finalEmail, pass);
-      toast({ title: 'Welcome Admin', description: 'Authentication successful.' });
+      toast({ title: 'Welcome Admin', description: `Authenticated as ${finalEmail}` });
     } catch (error: any) {
       let msg = error.message;
       if (error.code === 'auth/invalid-credential') {
-        msg = "Invalid credentials. Ensure this account is created in the Firebase Console with the correct password.";
+        msg = "Invalid credentials. Please verify the email and password in the Firebase Console.";
+      } else if (error.code === 'auth/user-not-found') {
+        msg = "This administrator account does not exist.";
       }
       toast({ 
         variant: 'destructive', 
