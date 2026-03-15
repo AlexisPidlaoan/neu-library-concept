@@ -2,9 +2,9 @@
   "placeholderImages": [
     {
       "id": "hero-library",
-      "description": "Illustration of the New Era University Library building.",
-      "imageUrl": "https://picsum.photos/seed/neu-lib-draw/1200/800",
-      "imageHint": "library building drawing"
+      "description": "Actual photo of the New Era University Library building.",
+      "imageUrl": "/NEU Library.png",
+      "imageHint": "NEU library building"
     },
     {
       "id": "app-logo",
