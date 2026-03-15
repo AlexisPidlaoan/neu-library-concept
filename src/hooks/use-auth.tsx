@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 
-// Institutional Admin Emails - Hardcoded for absolute access
 const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph', 'pampa4858@gmail.com'];
 
 interface AuthContextType {
@@ -28,6 +27,7 @@ interface AuthContextType {
   pendingStudentId: string | null;
   login: () => Promise<void>;
   loginWithId: (studentId: string) => Promise<void>;
+  continueAsGuest: () => void;
   cancelLinking: () => void;
   logout: () => Promise<void>;
 }
@@ -39,6 +39,7 @@ const AuthContext = createContext<AuthContextType>({
   pendingStudentId: null,
   login: async () => {},
   loginWithId: async (id: string) => {},
+  continueAsGuest: () => {},
   cancelLinking: () => {},
   logout: async () => {},
 });
@@ -51,7 +52,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
   const router = useRouter();
   
-  // Track if we are in a terminal session so the auth listener doesn't wipe state
   const isTerminalSession = useRef(false);
 
   useEffect(() => {
@@ -63,7 +63,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isInstitutional = email?.endsWith('@neu.edu.ph');
           const isAdminEmail = !!(email && ADMIN_EMAILS.includes(email));
 
-          // 1. Domain Enforcement (Bypass for Super Admins)
           if (isGoogleUser && !isInstitutional && !isAdminEmail) {
             await signOut(auth);
             toast({
@@ -79,7 +78,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           setUser(firebaseUser);
 
-          // If this is a terminal session and we have a profile, don't let the listener reset it
           if (isTerminalSession.current && profile) {
             setLoading(false);
             return;
@@ -102,7 +100,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               return;
             }
 
-            // Sync Admin Status
             if (isAdminEmail) {
               if (userData.role !== 'admin') {
                 await updateDoc(userDocRef, { role: 'admin', updatedAt: serverTimestamp() });
@@ -113,7 +110,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             setProfile(userData);
           } else if (isGoogleUser) {
-            // Register New Institutional or Super Admin User
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -136,8 +132,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         } else {
           setUser(null);
-          setProfile(null);
-          isTerminalSession.current = false;
+          // Only clear profile if it wasn't a manual guest session
+          if (!isTerminalSession.current) {
+            setProfile(null);
+          }
         }
       } catch (e) {
         console.error("Auth Hook Error:", e);
@@ -164,17 +162,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithId = async (studentId: string) => {
     setLoading(true);
     try {
-      // Ensure we have an anonymous session for querying
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
 
-      // Query for existing student ID
       const q = query(collection(db, 'users'), where('studentId', '==', studentId), limit(1));
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        // Instead of forcing Google, we set a flag that allows bypass or guest entry
         setPendingStudentId(studentId);
         isTerminalSession.current = false;
         toast({ 
@@ -191,7 +186,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('This Student ID is currently restricted.');
       }
 
-      // Found the user! Skip linking and proceed.
       isTerminalSession.current = true;
       setPendingStudentId(null);
       setProfile(foundUser);
@@ -201,6 +195,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       toast({ variant: 'destructive', title: 'Check-in Failed', description: error.message || 'Permission denied.' });
       setLoading(false);
     }
+  };
+
+  const continueAsGuest = () => {
+    setLoading(true);
+    isTerminalSession.current = true;
+    setProfile({
+      id: `guest-${Date.now()}`,
+      displayName: 'Guest Student',
+      studentId: pendingStudentId,
+      role: 'student',
+      isGuest: true
+    });
+    setPendingStudentId(null);
+    router.push('/dashboard/check-in');
+    setLoading(false);
   };
 
   const cancelLinking = () => {
@@ -223,7 +232,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, pendingStudentId, login, loginWithId, cancelLinking, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, pendingStudentId, login, loginWithId, continueAsGuest, cancelLinking, logout }}>
       {children}
     </AuthContext.Provider>
   );
