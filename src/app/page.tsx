@@ -3,20 +3,27 @@
 
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X, UserPlus, User } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X, UserPlus, User, Lock, Mail } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export default function Home() {
-  const { profile, login, loginWithId, continueAsGuest, loading, pendingStudentId, cancelLinking } = useAuth();
+  const { profile, login, loginWithId, loginWithEmail, continueAsGuest, loading, pendingStudentId, cancelLinking } = useAuth();
   const router = useRouter();
   const [studentId, setStudentId] = useState('');
+  const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
   const idInputRef = useRef<HTMLInputElement>(null);
   
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero-library');
@@ -58,6 +65,13 @@ export default function Home() {
     loginWithId(studentId);
   };
 
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    await loginWithEmail(adminEmail, adminPass);
+    setIsLoggingIn(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#D1C4B5]">
@@ -76,7 +90,11 @@ export default function Home() {
           <GraduationCap className="h-8 w-8 text-white" />
           <span className="font-bold text-2xl tracking-tight text-white">NEU Library</span>
         </Link>
-        <Button variant="ghost" onClick={login} className="text-white hover:bg-white/10">
+        <Button 
+          variant="ghost" 
+          onClick={() => setIsAdminDialogOpen(true)} 
+          className="text-white hover:bg-white/10"
+        >
           Admin Login
         </Button>
       </nav>
@@ -202,6 +220,62 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <Dialog open={isAdminDialogOpen} onOpenChange={setIsAdminDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white border-none shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-primary flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-[#ED1C24]" />
+              Administrator Access
+            </DialogTitle>
+            <DialogDescription>
+              Enter your institutional credentials to access the dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAdminLogin} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="admin-email">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input 
+                  id="admin-email" 
+                  type="email" 
+                  placeholder="alexis.pidlaoan@neu.edu.ph" 
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input 
+                  id="admin-password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  value={adminPass}
+                  onChange={(e) => setAdminPass(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full bg-primary hover:bg-primary/90 h-12 text-lg font-bold"
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? 'Verifying...' : 'Log In to System'}
+            </Button>
+          </form>
+          <div className="text-center text-xs text-slate-500 mt-4">
+            Authorized Personnel Only
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <footer className="bg-primary text-white/70 py-6 px-6 border-t border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
