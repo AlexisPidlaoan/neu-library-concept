@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -12,11 +11,10 @@ import {
   signInWithEmailAndPassword
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, serverTimestamp } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { useAuth as useFirebaseAuth, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
-const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 
 const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph', 'pampa4858@gmail.com'];
@@ -48,6 +46,8 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const auth = useFirebaseAuth();
+  const db = useFirestore();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +59,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const profileFetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!auth || !db) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
@@ -122,7 +124,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(userData);
             profileFetchedRef.current = firebaseUser.uid;
           } else {
-            // New User profile creation
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -159,7 +160,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast]);
+  }, [pendingStudentId, toast, auth, db]);
 
   const login = async () => {
     isTerminalSession.current = false;
@@ -178,8 +179,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     isTerminalSession.current = false;
     try {
       await signInWithEmailAndPassword(auth, email, pass);
+      toast({ title: 'Welcome Admin', description: 'Authentication successful.' });
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Admin Login Failed', description: 'Check your credentials and try again.' });
+      toast({ 
+        variant: 'destructive', 
+        title: 'Admin Login Failed', 
+        description: error.message || 'Check your credentials and try again.' 
+      });
       setLoading(false);
     }
   };
