@@ -43,23 +43,23 @@ The NEU Library System replaces traditional paper-based logs with a modern, high
 - Monitor the **Visitor Dashboard** during peak hours to ensure the terminal is flowing smoothly.
 - Use the **Search** feature in the detailed log to verify specific entries if needed.
 
-##📖 Student Entry Guide: How to Use the Terminal
+## 📖 Student Entry Guide: How to Use the Terminal
 Welcome to the NEU Library Visitor Log System. Please follow these steps to record your visit:
 
-Step 1: Identification
+### Step 1: Identification
 •	Student ID / RFID: Type your School ID (Format: YY-XXXXX-XXX) into the terminal or scan your RFID-compatible card.
 •	Email Lookup: Alternatively, you may sign in using your @neu.edu.ph institutional email.
 •	Guest Access: If your ID is not yet registered in the system, you may proceed as a guest or first-time user to link your account for future ease of access.
 
-Step 2: Profile Verification
+### Step 2: Profile Verification
 •	Once identified, the system will display your real-time visitor profile, including your name and department.
 •	Note: If you have been restricted by library administration, an "Access Denied" overlay will appear, and you must contact the librarian.
 
-Step 3: Select Department and Course
+### Step 3: Select Department and Course
 •	Verify your respective college (e.g., CICS, CAS, CBA, etc.) from the list of supported departments.
 •	Ensure your specific course or program information is accurate before proceeding.
 
-Step 4: Purpose of Visit
+### Step 4: Purpose of Visit
 •	Choose your primary reason for visiting the library from the following options:
 1.	Reading Books 
 2.	Thesis / Research 
@@ -69,7 +69,7 @@ Step 4: Purpose of Visit
 6.	Borrowing / Returning Books 
 7.	Group Study 
 
-Step 5: Confirm Entry
+### Step 5: Confirm Entry
 •	Click the Submit button to log your visit instantly into the database.
 •	A Success Overlay will appear for 4 seconds, showing a "Welcome to NEU" or confirmation message to signal your entry is recorded.
 
