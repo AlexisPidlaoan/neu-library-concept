@@ -79,8 +79,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           setUser(firebaseUser);
 
-          // If this is an anonymous terminal session and we already have a profile set, don't overwrite it
-          if (!isGoogleUser && isTerminalSession.current && profile) {
+          // If this is a terminal session and we have a profile, don't let the listener reset it
+          if (isTerminalSession.current && profile) {
             setLoading(false);
             return;
           }
@@ -108,15 +108,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 await updateDoc(userDocRef, { role: 'admin', updatedAt: serverTimestamp() });
                 userData.role = 'admin';
               }
-              // Ensure security marker exists for firestore.rules
               setDoc(adminDocRef, { active: true }, { merge: true }).catch(() => {});
-            }
-
-            // Handle linking if user was in terminal mode
-            if (pendingStudentId) {
-              await updateDoc(userDocRef, { studentId: pendingStudentId, updatedAt: serverTimestamp() });
-              userData.studentId = pendingStudentId;
-              setPendingStudentId(null);
             }
 
             setProfile(userData);
@@ -141,9 +133,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             
             setPendingStudentId(null);
             setProfile(newProfile);
-          } else if (!isTerminalSession.current) {
-            // Anonymous user with no profile (and not in terminal mode)
-            setProfile(null);
           }
         } else {
           setUser(null);
@@ -161,12 +150,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [pendingStudentId, toast, profile]);
 
   const login = async () => {
-    // CRITICAL: Call signInWithPopup as the first action to prevent browser popup blocking.
-    // Avoid await calls or state updates before this call whenever possible.
     isTerminalSession.current = false;
     try {
       await signInWithPopup(auth, googleProvider);
-      // setLoading is not strictly needed here as onAuthStateChanged handles the transition
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({ variant: 'destructive', title: 'Login Error', description: error.message });
@@ -178,17 +164,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithId = async (studentId: string) => {
     setLoading(true);
     try {
+      // Ensure we have an anonymous session for querying
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
 
+      // Query for existing student ID
       const q = query(collection(db, 'users'), where('studentId', '==', studentId), limit(1));
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
+        // Instead of forcing Google, we set a flag that allows bypass or guest entry
         setPendingStudentId(studentId);
         isTerminalSession.current = false;
-        toast({ title: 'Registration Required', description: 'Student ID not found. Please link it with your Google account.' });
+        toast({ 
+          title: 'Student ID Not Found', 
+          description: 'This ID is not yet registered. You can link a Google account or continue as guest.' 
+        });
         setLoading(false);
         return;
       }
@@ -199,7 +191,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('This Student ID is currently restricted.');
       }
 
+      // Found the user! Skip linking and proceed.
       isTerminalSession.current = true;
+      setPendingStudentId(null);
       setProfile(foundUser);
       router.push('/dashboard/check-in');
     } catch (error: any) {
