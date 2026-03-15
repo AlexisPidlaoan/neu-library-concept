@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X, UserPlus, User, Lock, Mail, Loader2 } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X, UserPlus, User, Lock, Mail, Loader2, Info } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -69,8 +70,20 @@ export default function Home() {
     setIsLoggingIn(true);
     try {
       await loginWithEmail(adminEmail, adminPass);
+      // Clear fields on success
+      setAdminEmail('');
+      setAdminPass('');
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsAdminDialogOpen(open);
+    if (!open) {
+      // Clear fields when dialog is closed
+      setAdminEmail('');
+      setAdminPass('');
     }
   };
 
@@ -94,7 +107,7 @@ export default function Home() {
         </Link>
         <Button 
           variant="ghost" 
-          onClick={() => setIsAdminDialogOpen(true)} 
+          onClick={() => handleDialogOpenChange(true)} 
           className="text-white hover:bg-white/10"
         >
           Admin Login
@@ -223,7 +236,7 @@ export default function Home() {
         </section>
       </main>
 
-      <Dialog open={isAdminDialogOpen} onOpenChange={setIsAdminDialogOpen}>
+      <Dialog open={isAdminDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="sm:max-w-md bg-white border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-primary flex items-center gap-2">
@@ -236,17 +249,17 @@ export default function Home() {
           </DialogHeader>
           <form onSubmit={handleAdminLogin} className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-email">Email Address</Label>
+              <Label htmlFor="admin-email">Email or "admin"</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input 
                   id="admin-email" 
-                  type="email" 
-                  placeholder="alexis.pidlaoan@neu.edu.ph" 
+                  placeholder="student@neu.edu.ph" 
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
                   className="pl-10"
                   required
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -262,9 +275,18 @@ export default function Home() {
                   onChange={(e) => setAdminPass(e.target.value)}
                   className="pl-10"
                   required
+                  autoComplete="off"
                 />
               </div>
             </div>
+            
+            <Alert className="bg-blue-50 border-blue-200">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-xs text-blue-700">
+                Setup: Ensure the email exists in your Firebase Console (Authentication &gt; Users) with the password <strong>admin123</strong>.
+              </AlertDescription>
+            </Alert>
+
             <Button 
               type="submit" 
               className="w-full bg-primary hover:bg-primary/90 h-12 text-lg font-bold"
