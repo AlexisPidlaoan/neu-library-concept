@@ -1,10 +1,10 @@
 
 "use client"
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,7 +47,7 @@ export default function AdminDashboardPage() {
   const [isExporting, setIsExporting] = useState(false);
   const hasFetched = useRef(false);
 
-  const fetchData = async (force = false) => {
+  const fetchData = useCallback(async (force = false) => {
     if (!profile || profile.role !== 'admin') return;
     if (hasFetched.current && !force) return;
     
@@ -65,7 +65,7 @@ export default function AdminDashboardPage() {
       setColleges(collegeSnap.docs.map(doc => doc.data().name));
 
       // Fetch visits - Simple query to avoid index requirements
-      const q = query(collection(db, 'visits'));
+      const q = query(collection(db, 'visits'), limit(500));
       const querySnapshot = await getDocs(q).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'visits',
@@ -87,17 +87,17 @@ export default function AdminDashboardPage() {
       hasFetched.current = true;
     } catch (err: any) {
       console.error("Dashboard Data Fetch Error:", err);
-      setError(`Database Error: ${err.message || "Failed to load data."}`);
+      setError(`Database Access Error: Ensure you are logged in as an administrator.`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile]);
 
   useEffect(() => {
     if (profile?.role === 'admin') {
       fetchData();
     }
-  }, [profile]);
+  }, [profile, fetchData]);
 
   const filteredVisits = useMemo(() => {
     const now = new Date();
@@ -159,6 +159,7 @@ export default function AdminDashboardPage() {
   }, [filteredVisits]);
 
   const topCollegeName = useMemo(() => {
+    if (filteredVisits.length === 0) return 'N/A';
     const counts = filteredVisits.reduce((acc: any, visit) => {
       acc[visit.college] = (acc[visit.college] || 0) + 1;
       return acc;
@@ -167,6 +168,7 @@ export default function AdminDashboardPage() {
   }, [filteredVisits]);
 
   const topProgram = useMemo(() => {
+    if (filteredVisits.length === 0) return 'N/A';
     const counts = filteredVisits.reduce((acc: any, visit) => {
       acc[visit.program] = (acc[visit.program] || 0) + 1;
       return acc;
@@ -213,7 +215,7 @@ export default function AdminDashboardPage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="w-full max-w-md text-center p-8 border-none shadow-lg bg-white">
           <CardTitle className="text-destructive mb-2">Access Denied</CardTitle>
-          <CardDescription>Administrative privileges required.</CardDescription>
+          <CardDescription>Administrative privileges required to view database analytics.</CardDescription>
         </Card>
       </div>
     );
@@ -227,10 +229,10 @@ export default function AdminDashboardPage() {
             <LayoutDashboard className="h-8 w-8" />
             Visitor Dashboard
           </h1>
-          <p className="text-muted-foreground">Monitor library activity and trends.</p>
+          <p className="text-muted-foreground">Monitor library activity and institutional trends.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => fetchData(force = true)} disabled={loading}>
+          <Button variant="outline" size="icon" onClick={() => fetchData(true)} disabled={loading} className="bg-white">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button 
@@ -248,10 +250,10 @@ export default function AdminDashboardPage() {
       {error && (
         <Alert variant="destructive" className="bg-white border-destructive shadow-md">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Connection Error</AlertTitle>
+          <AlertTitle>System Error</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-4">
             {error}
-            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => fetchData(true)}>Retry</Button>
+            <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => fetchData(true)}>Retry Connection</Button>
           </AlertDescription>
         </Alert>
       )}
@@ -310,7 +312,7 @@ export default function AdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[350px] w-full pt-4">
-            {loading ? (
+            {loading && visits.length === 0 ? (
               <div className="h-full w-full flex items-center justify-center bg-slate-50 rounded-lg">
                 <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
               </div>
@@ -345,11 +347,11 @@ export default function AdminDashboardPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 text-primary">
               <PieChartIcon className="h-5 w-5" />
-              College Breakdown
+              Department Breakdown
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[350px] w-full pt-4">
-            {loading ? (
+            {loading && visits.length === 0 ? (
               <div className="h-full w-full flex items-center justify-center bg-slate-50 rounded-lg">
                 <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
               </div>
@@ -387,7 +389,7 @@ export default function AdminDashboardPage() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-sm">
-                No departmental data yet.
+                No departmental data found.
               </div>
             )}
           </CardContent>
@@ -459,7 +461,7 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
+                  {loading && visits.length === 0 ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
                         <TableCell colSpan={4}><div className="h-12 w-full bg-slate-50 animate-pulse rounded"></div></TableCell>
@@ -489,7 +491,7 @@ export default function AdminDashboardPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
-                        No visitors found for this criteria.
+                        No records found matching your selection.
                       </TableCell>
                     </TableRow>
                   )}
@@ -502,3 +504,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
