@@ -12,13 +12,14 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Bootstrap Admin check for initial setup
+    // Bootstrap Admin check for initial setup and system maintenance
     function isHardcodedAdmin() {
       return isSignedIn() && (
         request.auth.uid == '1t6xZ846ruWwhzwk7owwlhAP5142' ||
         request.auth.uid == 'm9USWS5C0seJ7oUIV3t65yxVjrv1' ||
         (request.auth.token.email != null && request.auth.token.email.lower() == 'alexis.pidlaoan@neu.edu.ph') ||
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'pampa4858@gmail.com')
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'pampa4858@gmail.com') ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'admin@neu.edu.ph')
       );
     }
 
@@ -34,7 +35,7 @@ service cloud.firestore {
 
     match /admins/{userId} {
       allow read: if isSignedIn();
-      allow write: if isHardcodedAdmin() || isAdmin();
+      allow write: if isAdmin();
     }
 
     match /users/{userId} {
@@ -60,6 +61,7 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Allow collection group reads for admins or owners
     match /{path=**}/visits/{visitId} {
        allow read: if isAdmin() || (
         isSignedIn() && (
