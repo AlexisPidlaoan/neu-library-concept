@@ -4,14 +4,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, orderBy, getDocs, where, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, where, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay, isAfter, isBefore } from 'date-fns';
 import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen, GraduationCap, PieChart as PieChartIcon, AlertCircle } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
@@ -53,6 +53,7 @@ export default function AdminDashboardPage() {
       setLoading(true);
       setError(null);
       try {
+        // Fetch colleges
         const collegeSnap = await getDocs(collection(db, 'colleges')).catch(err => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'colleges',
@@ -62,17 +63,9 @@ export default function AdminDashboardPage() {
         });
         setColleges(collegeSnap.docs.map(doc => doc.data().name));
 
-        let q = query(collection(db, 'visits'), orderBy('timestamp', 'desc'));
-        
-        const now = new Date();
-        if (timeFilter === 'today') {
-          q = query(q, where('timestamp', '>=', Timestamp.fromDate(startOfDay(now))), where('timestamp', '<=', Timestamp.fromDate(endOfDay(now))));
-        } else if (timeFilter === 'week') {
-          q = query(q, where('timestamp', '>=', Timestamp.fromDate(startOfWeek(now))));
-        } else if (timeFilter === 'month') {
-          q = query(q, where('timestamp', '>=', Timestamp.fromDate(startOfMonth(now))));
-        }
-
+        // Simplified query to avoid index requirement
+        // Fetching all visits and handling filtering on client
+        const q = query(collection(db, 'visits'));
         const querySnapshot = await getDocs(q).catch(err => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'visits',
@@ -87,29 +80,47 @@ export default function AdminDashboardPage() {
           date: doc.data().timestamp?.toDate() || new Date(),
         }));
         
+        // Initial sort by date descending
+        fetchedVisits.sort((a, b) => b.date.getTime() - a.date.getTime());
+        
         setVisits(fetchedVisits);
       } catch (err: any) {
         console.error("Dashboard Data Fetch Error:", err);
-        setError("Failed to load dashboard data. Please ensure database indexes are ready.");
+        setError("Failed to load dashboard data. Please ensure database permissions are correct.");
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, [timeFilter, profile]);
+  }, [profile]);
 
   const filteredVisits = useMemo(() => {
+    const now = new Date();
     return visits.filter(visit => {
+      // Time Filter (Client Side)
+      let matchesTime = true;
+      if (timeFilter === 'today') {
+        matchesTime = isSameDay(visit.date, now);
+      } else if (timeFilter === 'week') {
+        matchesTime = isAfter(visit.date, startOfWeek(now));
+      } else if (timeFilter === 'month') {
+        matchesTime = isAfter(visit.date, startOfMonth(now));
+      }
+
+      // College Filter
+      const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
+
+      // Search Filter
       const searchLow = searchTerm.toLowerCase();
       const matchesSearch = 
         (visit.userName?.toLowerCase() || "").includes(searchLow) ||
         (visit.userEmail?.toLowerCase() || "").includes(searchLow) ||
         (visit.program?.toLowerCase() || "").includes(searchLow) ||
         (visit.purpose?.toLowerCase() || "").includes(searchLow);
-      const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
-      return matchesSearch && matchesCollege;
+      
+      return matchesTime && matchesCollege && matchesSearch;
     });
-  }, [visits, searchTerm, collegeFilter]);
+  }, [visits, timeFilter, collegeFilter, searchTerm]);
 
   const trendData = useMemo(() => {
     const now = new Date();
@@ -122,18 +133,20 @@ export default function AdminDashboardPage() {
     } else if (timeFilter === 'month') {
       interval = { start: startOfMonth(now), end: now };
     } else {
-      interval = { start: startOfMonth(now), end: now };
+      // Find oldest visit for "all" view range
+      const oldest = visits.length > 0 ? visits[visits.length - 1].date : startOfMonth(now);
+      interval = { start: oldest, end: now };
     }
 
     const days = eachDayOfInterval(interval);
     return days.map(day => {
-      const count = filteredVisits.filter(v => isSameDay(v.date, day)).length;
+      const count = visits.filter(v => isSameDay(v.date, day)).length;
       return {
         date: format(day, 'MMM dd'),
         visitors: count
       };
     });
-  }, [filteredVisits, timeFilter]);
+  }, [visits, timeFilter]);
 
   const collegeStats = useMemo(() => {
     const stats = filteredVisits.reduce((acc: any, visit) => {
@@ -160,7 +173,6 @@ export default function AdminDashboardPage() {
     return acc;
   }, {});
   const topCollegeName = Object.keys(topCollege).sort((a, b) => topCollege[b] - topCollege[a])[0] || 'N/A';
-  
   const topProgram = Object.keys(programStats).sort((a, b) => programStats[b] - programStats[a])[0] || 'N/A';
 
   const generatePDF = () => {
@@ -274,10 +286,10 @@ export default function AdminDashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-[#ED1C24]" />
-              Daily Average
+              Daily Entry Trend
             </CardDescription>
             <CardTitle className="text-2xl font-bold text-primary">
-              {filteredVisits.length > 0 ? (filteredVisits.length / trendData.length).toFixed(1) : 0}
+              {filteredVisits.length} Records
             </CardTitle>
           </CardHeader>
         </Card>
