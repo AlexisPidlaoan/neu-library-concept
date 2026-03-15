@@ -2,34 +2,6 @@
 
 A dedicated digital logbook and analytics platform for **New Era University (NEU)** to monitor, manage, and analyze library usage efficiently.
 
-## 🛠️ Tech Stack & Languages
-
-This application is built using a modern, high-performance stack:
-
-- **Languages**: 
-  - **TypeScript**: Ensuring type safety and robust code across the entire application.
-  - **JavaScript (ES6+)**: Used for client-side interactions and serverless functions.
-  - **HTML5 & CSS3**: Structured with semantic HTML and styled with modern CSS.
-- **Frontend Framework**: 
-  - **Next.js 15 (App Router)**: Utilizing Server Components and optimized routing for high-speed performance.
-  - **React 19**: Leveraging the latest React features and hooks for a reactive user interface.
-- **Styling & UI**:
-  - **Tailwind CSS**: Utility-first CSS framework for rapid and consistent styling.
-  - **Shadcn UI**: A collection of high-quality, accessible components built on Radix UI.
-  - **Lucide React**: Modern, consistent iconography throughout the dashboard and terminal.
-- **Backend & Database**:
-  - **Firebase Firestore**: Real-time, NoSQL database for visit logs and user profiles.
-  - **Firebase Authentication**: Secure identity management via Institutional Google Login and Anonymous sessions.
-  - **Firebase App Hosting**: Reliable, scalable deployment platform.
-- **Artificial Intelligence**:
-  - **Genkit (Google AI)**: Powers the "Smart Purpose" suggestions using Gemini 2.5 Flash for faster data entry.
-- **Data Visualization & Reporting**:
-  - **Recharts**: For dynamic traffic trends and departmental distribution charts.
-  - **jsPDF & AutoTable**: Enabling administrators to export detailed visit logs to PDF for institutional reporting.
-- **State Management & Utilities**:
-  - **Date-fns**: Comprehensive date manipulation for analytics and logging.
-  - **React Hook Form & Zod**: For strict form validation and data integrity.
-
 ---
 
 ## 🌟 Overview
@@ -103,6 +75,36 @@ Welcome to the NEU Library Visitor Log System. Please follow these steps to reco
 ### Step 5: Confirm Entry
 - Click the **Submit** button to log your visit instantly into the database.
 - A **Success Overlay** will appear for 4 seconds, showing a confirmation message to signal your entry is recorded.
+
+---
+
+## 🛠️ Tech Stack & Languages
+
+This application is built using a modern, high-performance stack:
+
+- **Languages**: 
+  - **TypeScript**: Ensuring type safety and robust code across the entire application.
+  - **JavaScript (ES6+)**: Used for client-side interactions and serverless functions.
+  - **HTML5 & CSS3**: Structured with semantic HTML and styled with modern CSS.
+- **Frontend Framework**: 
+  - **Next.js 15 (App Router)**: Utilizing Server Components and optimized routing for high-speed performance.
+  - **React 19**: Leveraging the latest React features and hooks for a reactive user interface.
+- **Styling & UI**:
+  - **Tailwind CSS**: Utility-first CSS framework for rapid and consistent styling.
+  - **Shadcn UI**: A collection of high-quality, accessible components built on Radix UI.
+  - **Lucide React**: Modern, consistent iconography throughout the dashboard and terminal.
+- **Backend & Database**:
+  - **Firebase Firestore**: Real-time, NoSQL database for visit logs and user profiles.
+  - **Firebase Authentication**: Secure identity management via Institutional Google Login and Anonymous sessions.
+  - **Firebase App Hosting**: Reliable, scalable deployment platform.
+- **Artificial Intelligence**:
+  - **Genkit (Google AI)**: Powers the "Smart Purpose" suggestions using Gemini 2.5 Flash for faster data entry.
+- **Data Visualization & Reporting**:
+  - **Recharts**: For dynamic traffic trends and departmental distribution charts.
+  - **jsPDF & AutoTable**: Enabling administrators to export detailed visit logs to PDF for institutional reporting.
+- **State Management & Utilities**:
+  - **Date-fns**: Comprehensive date manipulation for analytics and logging.
+  - **React Hook Form & Zod**: For strict form validation and data integrity.
 
 ---
 
