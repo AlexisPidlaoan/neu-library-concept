@@ -12,11 +12,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Hardcoded Super Admin check to prevent lockouts
+    // Hardcoded Super Admin check with case-insensitive support for safety
     function isSuperAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == "alexis.pidlaoan@neu.edu.ph" ||
-        request.auth.token.email == "pampa4858@gmail.com" ||
+        request.auth.token.email.matches('(?i)alexis.pidlaoan@neu.edu.ph') ||
+        request.auth.token.email.matches('(?i)pampa4858@gmail.com') ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -29,13 +29,11 @@ service cloud.firestore {
 
     match /admins/{userId} {
       allow get: if isSignedIn();
-      // Allow the specific super admin emails to bootstrap the admin collection
-      allow create, update, delete: if isAdmin() || (isSignedIn() && (request.auth.token.email == "alexis.pidlaoan@neu.edu.ph" || request.auth.token.email == "pampa4858@gmail.com"));
+      allow create, update, delete: if isAdmin() || (isSignedIn() && (request.auth.token.email.matches('(?i)alexis.pidlaoan@neu.edu.ph') || request.auth.token.email.matches('(?i)pampa4858@gmail.com')));
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      // Allow list (queries) for any signed in user to support Student ID verification at the terminal
       allow list: if isSignedIn(); 
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
@@ -48,25 +46,19 @@ service cloud.firestore {
     }
 
     match /visits/{visitId} {
-      // Allow create for any signed in user
       allow create: if isSignedIn();
-      
-      // Allow read (get/list) if admin OR if the record belongs to the user
-      allow read: if isAdmin() || (
+      allow read, list: if isAdmin() || (
         isSignedIn() && (
           resource.data.userId == request.auth.uid || 
-          (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email) ||
-          (resource.data.userId != null && resource.data.userId == request.auth.uid)
+          (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
         )
       );
-      
-      // Only admins can modify or remove logs
       allow update, delete: if isAdmin();
     }
 
     // Secondary path match for complex queries
     match /{path=**}/visits/{visitId} {
-       allow read: if isAdmin() || (
+       allow read, list: if isAdmin() || (
         isSignedIn() && (
           resource.data.userId == request.auth.uid || 
           (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
