@@ -53,15 +53,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   
   const isTerminalSession = useRef(false);
+  const profileFetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com');
+          // Avoid refetching profile if we already have it for this specific UID
+          if (profileFetchedRef.current === firebaseUser.uid && profile && !isTerminalSession.current) {
+            setUser(firebaseUser);
+            setLoading(false);
+            return;
+          }
+
           const email = firebaseUser.email?.toLowerCase();
           const isInstitutional = email?.endsWith('@neu.edu.ph');
           const isAdminEmail = !!(email && ADMIN_EMAILS.includes(email));
+          const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com');
 
           if (isGoogleUser && !isInstitutional && !isAdminEmail) {
             await signOut(auth);
@@ -72,12 +80,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             });
             setUser(null);
             setProfile(null);
+            profileFetchedRef.current = null;
             setLoading(false);
             return;
           }
 
           setUser(firebaseUser);
 
+          // Handle Terminal/Guest session bypass
           if (isTerminalSession.current && profile) {
             setLoading(false);
             return;
@@ -96,19 +106,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               toast({ variant: 'destructive', title: 'Account Blocked', description: 'Contact the library administrator.' });
               setUser(null);
               setProfile(null);
+              profileFetchedRef.current = null;
               setLoading(false);
               return;
             }
 
-            if (isAdminEmail) {
-              if (userData.role !== 'admin') {
-                await updateDoc(userDocRef, { role: 'admin', updatedAt: serverTimestamp() });
-                userData.role = 'admin';
-              }
+            if (isAdminEmail && userData.role !== 'admin') {
+              await updateDoc(userDocRef, { role: 'admin', updatedAt: serverTimestamp() });
+              userData.role = 'admin';
               setDoc(adminDocRef, { active: true }, { merge: true }).catch(() => {});
             }
 
             setProfile(userData);
+            profileFetchedRef.current = firebaseUser.uid;
           } else if (isGoogleUser) {
             const newProfile = {
               id: firebaseUser.uid,
@@ -129,12 +139,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             
             setPendingStudentId(null);
             setProfile(newProfile);
+            profileFetchedRef.current = firebaseUser.uid;
           }
         } else {
           setUser(null);
-          // Only clear profile if it wasn't a manual guest session
           if (!isTerminalSession.current) {
             setProfile(null);
+            profileFetchedRef.current = null;
           }
         }
       } catch (e) {
@@ -145,7 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast, profile]);
+  }, [pendingStudentId, toast]); // Removed 'profile' from dependencies to prevent infinite loop
 
   const login = async () => {
     isTerminalSession.current = false;
@@ -225,6 +236,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await signOut(auth);
       setPendingStudentId(null);
       setProfile(null);
+      profileFetchedRef.current = null;
       router.push('/');
     } catch (error: any) {
       setLoading(false);
