@@ -64,8 +64,8 @@ export default function AdminDashboardPage() {
       });
       setColleges(collegeSnap.docs.map(doc => doc.data().name));
 
-      // Fetch visits - Simple query to avoid index requirements
-      const q = query(collection(db, 'visits'), limit(500));
+      // Fetch visits
+      const q = query(collection(db, 'visits'), limit(1000));
       const querySnapshot = await getDocs(q).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'visits',
@@ -80,24 +80,26 @@ export default function AdminDashboardPage() {
         date: doc.data().timestamp?.toDate() || new Date(),
       }));
       
-      // Client-side sort by date descending
       fetchedVisits.sort((a, b) => b.date.getTime() - a.date.getTime());
       
       setVisits(fetchedVisits);
       hasFetched.current = true;
     } catch (err: any) {
-      console.error("Dashboard Data Fetch Error:", err);
-      setError(`Database Access Error: Ensure you are logged in as an administrator.`);
+      if (err.code === 'resource-exhausted') {
+        setError("Database Quota Exceeded. Please try again later.");
+      } else {
+        setError(`Database Access Error: Ensure you are logged in as an administrator.`);
+      }
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [profile?.id, profile?.role]); // Use specific fields to prevent redundant triggers
 
   useEffect(() => {
     if (profile?.role === 'admin') {
       fetchData();
     }
-  }, [profile, fetchData]);
+  }, [profile?.role, fetchData]);
 
   const filteredVisits = useMemo(() => {
     const now = new Date();
@@ -112,7 +114,6 @@ export default function AdminDashboardPage() {
       }
 
       const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
-
       const searchLow = searchTerm.toLowerCase();
       const matchesSearch = 
         (visit.userName?.toLowerCase() || "").includes(searchLow) ||
@@ -250,10 +251,10 @@ export default function AdminDashboardPage() {
       {error && (
         <Alert variant="destructive" className="bg-white border-destructive shadow-md">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>System Error</AlertTitle>
+          <AlertTitle>System Status</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-4">
             {error}
-            <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => fetchData(true)}>Retry Connection</Button>
+            <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => fetchData(true)}>Retry</Button>
           </AlertDescription>
         </Alert>
       )}
@@ -504,4 +505,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
