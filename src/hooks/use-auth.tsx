@@ -8,7 +8,8 @@ import {
   signOut, 
   User, 
   GoogleAuthProvider,
-  signInAnonymously
+  signInAnonymously,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, serverTimestamp } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
@@ -26,6 +27,7 @@ interface AuthContextType {
   loading: boolean;
   pendingStudentId: string | null;
   login: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
   loginWithId: (studentId: string) => Promise<void>;
   continueAsGuest: () => void;
   cancelLinking: () => void;
@@ -38,6 +40,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   pendingStudentId: null,
   login: async () => {},
+  loginWithEmail: async (email: string, pass: string) => {},
   loginWithId: async (id: string) => {},
   continueAsGuest: () => {},
   cancelLinking: () => {},
@@ -59,7 +62,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // Avoid refetching profile if we already have it for this specific UID
           if (profileFetchedRef.current === firebaseUser.uid && profile && !isTerminalSession.current) {
             setUser(firebaseUser);
             setLoading(false);
@@ -71,6 +73,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isAdminEmail = !!(email && ADMIN_EMAILS.includes(email));
           const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com');
 
+          // Allow email/pass users for admins even if not Google provider
           if (isGoogleUser && !isInstitutional && !isAdminEmail) {
             await signOut(auth);
             toast({
@@ -87,7 +90,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           setUser(firebaseUser);
 
-          // Handle Terminal/Guest session bypass
           if (isTerminalSession.current && profile) {
             setLoading(false);
             return;
@@ -119,12 +121,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             setProfile(userData);
             profileFetchedRef.current = firebaseUser.uid;
-          } else if (isGoogleUser) {
+          } else {
+            // New User profile creation
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
-              displayName: firebaseUser.displayName,
-              photoURL: firebaseUser.photoURL,
+              displayName: firebaseUser.displayName || email?.split('@')[0] || 'Admin',
+              photoURL: firebaseUser.photoURL || null,
               role: isAdminEmail ? 'admin' : 'student',
               studentId: pendingStudentId || null,
               isBlocked: false,
@@ -156,7 +159,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast]); // Removed 'profile' from dependencies to prevent infinite loop
+  }, [pendingStudentId, toast]);
 
   const login = async () => {
     isTerminalSession.current = false;
@@ -166,6 +169,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({ variant: 'destructive', title: 'Login Error', description: error.message });
       }
+      setLoading(false);
+    }
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    setLoading(true);
+    isTerminalSession.current = false;
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Admin Login Failed', description: 'Check your credentials and try again.' });
       setLoading(false);
     }
   };
@@ -244,7 +258,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, pendingStudentId, login, loginWithId, continueAsGuest, cancelLinking, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, pendingStudentId, login, loginWithEmail, loginWithId, continueAsGuest, cancelLinking, logout }}>
       {children}
     </AuthContext.Provider>
   );
