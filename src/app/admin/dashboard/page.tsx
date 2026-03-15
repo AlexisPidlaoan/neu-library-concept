@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay, isAfter } from 'date-fns';
+import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay, isAfter, subDays } from 'date-fns';
 import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, GraduationCap, PieChart as PieChartIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
@@ -41,7 +41,7 @@ export default function AdminDashboardPage() {
   const [colleges, setColleges] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeFilter, setTimeFilter] = useState('today');
+  const [timeFilter, setTimeFilter] = useState('week'); // Default to 'week' to show trends
   const [collegeFilter, setCollegeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
@@ -54,7 +54,6 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch colleges
       const collegeSnap = await getDocs(collection(db, 'colleges')).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'colleges',
@@ -64,7 +63,6 @@ export default function AdminDashboardPage() {
       });
       setColleges(collegeSnap.docs.map(doc => doc.data().name));
 
-      // Fetch visits
       const q = query(collection(db, 'visits'), limit(1000));
       const querySnapshot = await getDocs(q).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -93,7 +91,7 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.id, profile?.role]); // Use specific fields to prevent redundant triggers
+  }, [profile?.id, profile?.role]);
 
   useEffect(() => {
     if (profile?.role === 'admin') {
@@ -108,7 +106,7 @@ export default function AdminDashboardPage() {
       if (timeFilter === 'today') {
         matchesTime = isSameDay(visit.date, now);
       } else if (timeFilter === 'week') {
-        matchesTime = isAfter(visit.date, startOfWeek(now));
+        matchesTime = isAfter(visit.date, subDays(startOfDay(now), 7));
       } else if (timeFilter === 'month') {
         matchesTime = isAfter(visit.date, startOfMonth(now));
       }
@@ -132,11 +130,11 @@ export default function AdminDashboardPage() {
     if (timeFilter === 'today') {
       interval = { start: startOfDay(now), end: endOfDay(now) };
     } else if (timeFilter === 'week') {
-      interval = { start: startOfWeek(now), end: now };
+      interval = { start: subDays(startOfDay(now), 6), end: now };
     } else if (timeFilter === 'month') {
       interval = { start: startOfMonth(now), end: now };
     } else {
-      const oldest = visits.length > 0 ? visits[visits.length - 1].date : startOfMonth(now);
+      const oldest = visits.length > 0 ? visits[visits.length - 1].date : subDays(now, 30);
       interval = { start: oldest, end: now };
     }
 
