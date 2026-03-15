@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Nfc, Link as LinkIcon, AlertCircle, X, UserPlus } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -60,7 +60,7 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-[#D1C4B5]">
         <div className="animate-pulse flex flex-col items-center">
           <div className="h-12 w-12 bg-primary/20 rounded-full mb-4"></div>
           <div className="h-4 w-32 bg-primary/20 rounded"></div>
@@ -70,7 +70,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-[#D1C4B5]">
       <nav className="border-b bg-primary px-6 py-4 flex justify-between items-center sticky top-0 z-50">
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <GraduationCap className="h-8 w-8 text-white" />
@@ -94,7 +94,7 @@ export default function Home() {
                 data-ai-hint={heroImage.imageHint}
               />
             )}
-            <div className="absolute inset-0 bg-primary/10 backdrop-blur-[2px]" />
+            <div className="absolute inset-0 bg-primary/10 backdrop-blur-[1px]" />
           </div>
           
           <div className="relative z-10 w-full max-w-lg">
@@ -105,17 +105,17 @@ export default function Home() {
                     <div className="h-16 w-16 bg-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
                       <LinkIcon className="h-8 w-8 text-primary" />
                     </div>
-                    <h2 className="text-2xl font-bold text-primary">Link Your Account</h2>
+                    <h2 className="text-2xl font-bold text-primary">ID Not Registered</h2>
                     <p className="text-muted-foreground mt-2">
-                      Student ID <span className="font-mono font-bold text-[#ED1C24]">{pendingStudentId}</span> detected.
+                      Student ID <span className="font-mono font-bold text-[#ED1C24]">{pendingStudentId}</span> detected but not found in system.
                     </p>
                   </div>
 
                   <Alert className="bg-slate-50 border-primary/20">
                     <AlertCircle className="h-4 w-4 text-primary" />
-                    <AlertTitle>Registration Required</AlertTitle>
+                    <AlertTitle>Google Login Bypassed</AlertTitle>
                     <AlertDescription>
-                      Sign in with your official **@neu.edu.ph** Google account.
+                      You can register this ID by linking your official account, or go back to try a different ID.
                     </AlertDescription>
                   </Alert>
 
@@ -128,12 +128,12 @@ export default function Home() {
                       Link Institutional Account
                     </Button>
                     <Button 
-                      variant="ghost" 
+                      variant="outline" 
                       onClick={cancelLinking} 
-                      className="w-full h-10 text-slate-500 gap-2"
+                      className="w-full h-12 text-primary gap-2 border-primary/20"
                     >
                       <X className="h-4 w-4" />
-                      Cancel and use another ID
+                      Try Different ID
                     </Button>
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export default function Home() {
                           ref={idInputRef}
                           placeholder="12-34567-890" 
                           maxLength={12}
-                          className="h-16 text-2xl text-center font-mono tracking-widest border-2 border-primary/20 focus:border-primary transition-all"
+                          className="h-16 text-2xl text-center font-mono tracking-widest border-2 border-primary/20 focus:border-primary transition-all bg-white"
                           value={studentId}
                           onChange={handleIdChange}
                           autoFocus
@@ -177,7 +177,7 @@ export default function Home() {
                     <Button 
                       variant="outline" 
                       onClick={login} 
-                      className="w-full h-14 text-lg gap-2 border-2 border-primary/10 hover:bg-primary/5"
+                      className="w-full h-14 text-lg gap-2 border-2 border-primary/10 hover:bg-primary/5 bg-white"
                     >
                       <Image src="https://picsum.photos/seed/google/20/20" alt="G" width={20} height={20} className="rounded-full" />
                       Institutional Google Account
@@ -187,7 +187,7 @@ export default function Home() {
               )}
             </Card>
             
-            <p className="text-center mt-8 text-slate-600 font-medium text-sm flex items-center justify-center gap-2">
+            <p className="text-center mt-8 text-slate-800 font-bold text-sm flex items-center justify-center gap-2 drop-shadow-sm">
               <ShieldCheck className="h-4 w-4 text-[#00A859]" />
               Strictly for NEU Students and Personnel
             </p>
