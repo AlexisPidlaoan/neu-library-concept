@@ -12,42 +12,46 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Hardcoded Super Admin check with case-insensitive support for safety
-    function isSuperAdmin() {
+    // Bootstrap Admin check for initial setup
+    function isHardcodedAdmin() {
       return isSignedIn() && (
-        request.auth.token.email.matches('(?i)alexis.pidlaoan@neu.edu.ph') ||
-        request.auth.token.email.matches('(?i)pampa4858@gmail.com') ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        request.auth.uid == '1t6xZ846ruWwhzwk7owwlhAP5142' ||
+        request.auth.uid == 'm9USWS5C0seJ7oUIV3t65yxVjrv1' ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'alexis.pidlaoan@neu.edu.ph') ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'pampa4858@gmail.com')
       );
     }
 
+    // Comprehensive Admin check
     function isAdmin() {
-      return isSuperAdmin();
+      return isHardcodedAdmin() || 
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.lower() == 'admin');
     }
 
     // --- Collection Rules ---
 
     match /admins/{userId} {
-      allow get: if isSignedIn();
-      allow create, update, delete: if isAdmin() || (isSignedIn() && (request.auth.token.email.matches('(?i)alexis.pidlaoan@neu.edu.ph') || request.auth.token.email.matches('(?i)pampa4858@gmail.com')));
+      allow read: if isSignedIn();
+      allow write: if isHardcodedAdmin() || isAdmin();
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isSignedIn(); 
-      allow create: if isOwner(userId);
+      allow read: if isSignedIn(); 
+      allow create: if isSignedIn(); 
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
     match /colleges/{collegeId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /visits/{visitId} {
       allow create: if isSignedIn();
-      allow read, list: if isAdmin() || (
+      allow read: if isAdmin() || (
         isSignedIn() && (
           resource.data.userId == request.auth.uid || 
           (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
@@ -56,9 +60,8 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Secondary path match for complex queries
     match /{path=**}/visits/{visitId} {
-       allow read, list: if isAdmin() || (
+       allow read: if isAdmin() || (
         isSignedIn() && (
           resource.data.userId == request.auth.uid || 
           (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
