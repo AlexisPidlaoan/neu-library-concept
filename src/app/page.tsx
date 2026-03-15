@@ -280,13 +280,6 @@ export default function Home() {
               </div>
             </div>
             
-            <Alert className="bg-blue-50 border-blue-200">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-xs text-blue-700">
-                Setup: Ensure the email exists in your Firebase Console (Authentication &gt; Users) with the password <strong>admin123</strong>.
-              </AlertDescription>
-            </Alert>
-
             <Button 
               type="submit" 
               className="w-full bg-primary hover:bg-primary/90 h-12 text-lg font-bold"
