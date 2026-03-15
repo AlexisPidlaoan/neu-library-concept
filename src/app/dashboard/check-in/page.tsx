@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X } from 'lucide-react';
+import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X, Type } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -88,6 +89,7 @@ const COMMON_PURPOSES = [
 export default function CheckInPage() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const [guestName, setGuestName] = useState('');
   const [purposeSelection, setPurposeSelection] = useState('');
   const [customPurpose, setCustomPurpose] = useState('');
   const [college, setCollege] = useState('');
@@ -102,13 +104,17 @@ export default function CheckInPage() {
   const isCustomPurpose = purposeSelection === "Other / Custom Purpose...";
   const finalPurpose = isCustomPurpose ? customPurpose : purposeSelection;
 
+  const isGuest = profile?.isGuest;
+  const displayName = isGuest ? guestName : (profile?.displayName || 'Visitor');
+
   useEffect(() => {
     setProgram('');
   }, [college]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile || !college || !finalPurpose || (availablePrograms.length > 0 && !program)) {
+    
+    if (!profile || !college || !finalPurpose || (availablePrograms.length > 0 && !program) || (isGuest && !guestName.trim())) {
       toast({
         variant: 'destructive',
         title: 'Missing information',
@@ -121,8 +127,8 @@ export default function CheckInPage() {
     
     const visitData = {
       userId: profile.id,
-      userName: profile.displayName || 'Visitor',
-      userEmail: profile.email,
+      userName: displayName,
+      userEmail: profile.email || 'guest@terminal',
       college,
       program,
       purpose: finalPurpose,
@@ -136,6 +142,7 @@ export default function CheckInPage() {
         setCustomPurpose('');
         setCollege('');
         setProgram('');
+        setGuestName('');
         setIsSubmitting(false);
         setTimeout(() => setShowSuccess(false), 5000);
       })
@@ -178,18 +185,24 @@ export default function CheckInPage() {
         <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 border-4 border-white/20 shadow-lg">
             <AvatarImage src={profile?.photoURL || ''} />
-            <AvatarFallback className="text-2xl bg-white/10">{profile?.displayName?.charAt(0) || profile?.email?.charAt(0)}</AvatarFallback>
+            <AvatarFallback className="text-2xl bg-white/10">
+              {isGuest ? <UserIcon className="h-10 w-10" /> : (profile?.displayName?.charAt(0) || 'S')}
+            </AvatarFallback>
           </Avatar>
           <div className="text-center md:text-left">
-            <h2 className="text-3xl font-bold mb-1">{profile?.displayName || 'Student'}</h2>
-            <p className="text-white/80 text-lg mb-2">{profile?.email}</p>
+            <h2 className="text-3xl font-bold mb-1">
+              {isGuest ? 'Guest Entry' : (profile?.displayName || 'Student')}
+            </h2>
+            <p className="text-white/80 text-lg mb-2">
+              ID: <span className="font-mono font-bold">{profile?.studentId || 'No ID'}</span>
+            </p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
-              <Badge variant="secondary" className="bg-[#00A859] text-white border-none px-3 py-1">
+              <Badge variant="secondary" className={`${isGuest ? 'bg-[#FFD54F] text-primary' : 'bg-[#00A859] text-white'} border-none px-3 py-1`}>
                 <UserIcon className="h-3 w-3 mr-1" />
-                Student
+                {isGuest ? 'Guest Visitor' : 'Student'}
               </Badge>
               {profile?.role === 'admin' && (
-                <Badge variant="secondary" className="bg-[#FFD54F] text-primary border-none px-3 py-1">
+                <Badge variant="secondary" className="bg-[#ED1C24] text-white border-none px-3 py-1">
                   Administrator
                 </Badge>
               )}
@@ -211,9 +224,25 @@ export default function CheckInPage() {
                 <BookOpen className="h-5 w-5 text-[#00A859]" />
                 Entry Information
               </CardTitle>
-              <CardDescription>Select your department and undergraduate program.</CardDescription>
+              <CardDescription>Select your department and academic program.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
+              {isGuest && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label htmlFor="guestName" className="flex items-center gap-2 text-primary/80">
+                    <Type className="h-4 w-4 text-[#ED1C24]" />
+                    Full Name
+                  </Label>
+                  <Input 
+                    id="guestName"
+                    placeholder="Enter your full name"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    className="h-12 border-primary/10 bg-white"
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="college" className="flex items-center gap-2 text-primary/80">
                   <School className="h-4 w-4 text-[#FFD54F]" />
@@ -237,7 +266,7 @@ export default function CheckInPage() {
 
               {availablePrograms.length > 0 && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Label htmlFor="program" className="text-primary/80">Undergraduate Program</Label>
+                  <Label htmlFor="program" className="text-primary/80">Academic Program</Label>
                   <Select value={program} onValueChange={setProgram}>
                     <SelectTrigger id="program" className="h-12 border-primary/10 bg-white">
                       <SelectValue placeholder="Select Academic Program" />
@@ -288,7 +317,7 @@ export default function CheckInPage() {
               <Button 
                 type="submit" 
                 className="w-full h-14 text-xl font-bold bg-primary hover:bg-primary/90 shadow-lg" 
-                disabled={isSubmitting || !college || !finalPurpose || (availablePrograms.length > 0 && !program)}
+                disabled={isSubmitting || !college || !finalPurpose || (availablePrograms.length > 0 && !program) || (isGuest && !guestName.trim())}
               >
                 {isSubmitting ? (
                   <>
