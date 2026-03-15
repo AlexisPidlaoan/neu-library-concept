@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -17,7 +18,12 @@ import { useToast } from '@/hooks/use-toast';
 
 const googleProvider = new GoogleAuthProvider();
 
-const ADMIN_EMAILS = ['alexis.pidlaoan@neu.edu.ph', 'pampa4858@gmail.com'];
+// Authorized Admin Emails
+const ADMIN_EMAILS = [
+  'alexis.pidlaoan@neu.edu.ph', 
+  'pampa4858@gmail.com', 
+  'admin@neu.edu.ph'
+];
 
 interface AuthContextType {
   user: User | null;
@@ -160,7 +166,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast, auth, db]);
+  }, [pendingStudentId, toast, auth, db, profile]);
 
   const login = async () => {
     isTerminalSession.current = false;
@@ -177,14 +183,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithEmail = async (email: string, pass: string) => {
     setLoading(true);
     isTerminalSession.current = false;
+    
+    // Handle "admin" shorthand
+    const finalEmail = email.toLowerCase() === 'admin' ? 'admin@neu.edu.ph' : email;
+
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
+      await signInWithEmailAndPassword(auth, finalEmail, pass);
       toast({ title: 'Welcome Admin', description: 'Authentication successful.' });
     } catch (error: any) {
+      let msg = error.message;
+      if (error.code === 'auth/invalid-credential') {
+        msg = "Invalid credentials. Ensure this account is created in the Firebase Console with the correct password.";
+      }
       toast({ 
         variant: 'destructive', 
         title: 'Admin Login Failed', 
-        description: error.message || 'Check your credentials and try again.' 
+        description: msg
       });
       setLoading(false);
     }
