@@ -37,6 +37,9 @@ const SAMPLE_VISITS = [
   { userId: 'sample-s3', userName: 'Jose Rizal', userEmail: 'jose.rizal@neu.edu.ph', college: 'College of Education (CED)', program: 'Bachelor of Secondary Education', purpose: 'Borrow/return books', daysAgo: 1 },
   { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Use library computers', daysAgo: 2 },
   { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Arts and Sciences (CAS)', program: 'BS in Psychology', purpose: 'Group project meeting', daysAgo: 3 },
+  { userId: 'sample-s3', userName: 'Jose Rizal', userEmail: 'jose.rizal@neu.edu.ph', college: 'College of Education (CED)', program: 'Bachelor of Secondary Education', purpose: 'Consult with Librarian', daysAgo: 4 },
+  { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Thesis Work', daysAgo: 5 },
+  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Business Administration (CBA)', program: 'BSBA Major in Financial Management', purpose: 'Study for Exams', daysAgo: 6 },
 ];
 
 export default function UserManagementPage() {
@@ -56,13 +59,11 @@ export default function UserManagementPage() {
 
   async function fetchUsers() {
     try {
-      // Simplified query to avoid index requirement
       const q = query(collection(db, 'users'));
       const querySnapshot = await getDocs(q);
       const fetchedUsers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // Client-side sort
-      fetchedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+      fetchedUsers.sort((a: any, b: any) => (a.displayName || "").localeCompare(b.displayName || ""));
       setUsers(fetchedUsers);
     } catch (error) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -81,7 +82,6 @@ export default function UserManagementPage() {
       const now = new Date();
       const isoNow = now.toISOString();
 
-      // Seed Users
       [...SAMPLE_STUDENTS, ...SAMPLE_ADMINS].forEach(u => {
         const userRef = doc(db, 'users', u.id);
         batch.set(userRef, {
@@ -97,7 +97,6 @@ export default function UserManagementPage() {
         }
       });
 
-      // Seed Visits
       SAMPLE_VISITS.forEach((v, index) => {
         const visitRef = doc(collection(db, 'visits'));
         const visitDate = subDays(now, v.daysAgo);
