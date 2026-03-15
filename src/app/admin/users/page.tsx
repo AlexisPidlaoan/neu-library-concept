@@ -1,10 +1,10 @@
 
 "use client"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, doc, updateDoc, orderBy, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -56,9 +56,14 @@ export default function UserManagementPage() {
 
   async function fetchUsers() {
     try {
-      const q = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+      // Simplified query to avoid index requirement
+      const q = query(collection(db, 'users'));
       const querySnapshot = await getDocs(q);
-      setUsers(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const fetchedUsers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Client-side sort
+      fetchedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+      setUsers(fetchedUsers);
     } catch (error) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: 'users',
@@ -161,14 +166,16 @@ export default function UserManagementPage() {
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const searchLow = searchTerm.toLowerCase();
-    return (
-      (user.displayName?.toLowerCase() || "").includes(searchLow) ||
-      (user.email?.toLowerCase() || "").includes(searchLow) ||
-      (user.studentId?.toLowerCase() || "").includes(searchLow)
-    );
-  });
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const searchLow = searchTerm.toLowerCase();
+      return (
+        (user.displayName?.toLowerCase() || "").includes(searchLow) ||
+        (user.email?.toLowerCase() || "").includes(searchLow) ||
+        (user.studentId?.toLowerCase() || "").includes(searchLow)
+      );
+    });
+  }, [users, searchTerm]);
 
   if (profile?.role !== 'admin') return <div className="p-8">Access Denied</div>;
 
