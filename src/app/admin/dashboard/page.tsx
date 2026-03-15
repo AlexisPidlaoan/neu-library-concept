@@ -1,18 +1,17 @@
-
 "use client"
 
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, where, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay, isAfter, isBefore } from 'date-fns';
-import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, BookOpen, GraduationCap, PieChart as PieChartIcon, AlertCircle } from 'lucide-react';
+import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay, isAfter } from 'date-fns';
+import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, GraduationCap, PieChart as PieChartIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
@@ -46,58 +45,57 @@ export default function AdminDashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!profile || profile.role !== 'admin') return;
-      
-      setLoading(true);
-      setError(null);
-      try {
-        // Fetch colleges
-        const collegeSnap = await getDocs(collection(db, 'colleges')).catch(err => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'colleges',
-            operation: 'list'
-          }));
-          throw err;
-        });
-        setColleges(collegeSnap.docs.map(doc => doc.data().name));
-
-        // Simplified query to avoid index requirement
-        // Fetching all visits and handling filtering on client
-        const q = query(collection(db, 'visits'));
-        const querySnapshot = await getDocs(q).catch(err => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'visits',
-            operation: 'list'
-          }));
-          throw err;
-        });
-
-        const fetchedVisits = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().timestamp?.toDate() || new Date(),
+  const fetchData = async () => {
+    if (!profile || profile.role !== 'admin') return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch colleges
+      const collegeSnap = await getDocs(collection(db, 'colleges')).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'colleges',
+          operation: 'list'
         }));
-        
-        // Initial sort by date descending
-        fetchedVisits.sort((a, b) => b.date.getTime() - a.date.getTime());
-        
-        setVisits(fetchedVisits);
-      } catch (err: any) {
-        console.error("Dashboard Data Fetch Error:", err);
-        setError("Failed to load dashboard data. Please ensure database permissions are correct.");
-      } finally {
-        setLoading(false);
-      }
+        throw err;
+      });
+      setColleges(collegeSnap.docs.map(doc => doc.data().name));
+
+      // Fetch visits
+      const q = query(collection(db, 'visits'));
+      const querySnapshot = await getDocs(q).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'visits',
+          operation: 'list'
+        }));
+        throw err;
+      });
+
+      const fetchedVisits = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().timestamp?.toDate() || new Date(),
+      }));
+      
+      // Initial sort by date descending
+      fetchedVisits.sort((a, b) => b.date.getTime() - a.date.getTime());
+      
+      setVisits(fetchedVisits);
+    } catch (err: any) {
+      console.error("Dashboard Data Fetch Error:", err);
+      setError(`Database Error: ${err.message || "Failed to load dashboard data. Check your admin permissions."}`);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [profile]);
 
   const filteredVisits = useMemo(() => {
     const now = new Date();
     return visits.filter(visit => {
-      // Time Filter (Client Side)
       let matchesTime = true;
       if (timeFilter === 'today') {
         matchesTime = isSameDay(visit.date, now);
@@ -107,10 +105,8 @@ export default function AdminDashboardPage() {
         matchesTime = isAfter(visit.date, startOfMonth(now));
       }
 
-      // College Filter
       const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
 
-      // Search Filter
       const searchLow = searchTerm.toLowerCase();
       const matchesSearch = 
         (visit.userName?.toLowerCase() || "").includes(searchLow) ||
@@ -133,7 +129,6 @@ export default function AdminDashboardPage() {
     } else if (timeFilter === 'month') {
       interval = { start: startOfMonth(now), end: now };
     } else {
-      // Find oldest visit for "all" view range
       const oldest = visits.length > 0 ? visits[visits.length - 1].date : startOfMonth(now);
       interval = { start: oldest, end: now };
     }
@@ -157,22 +152,16 @@ export default function AdminDashboardPage() {
     return Object.entries(stats).map(([name, value]) => ({ name, value }));
   }, [filteredVisits]);
 
-  const programStats = filteredVisits.reduce((acc: any, visit) => {
-    acc[visit.program] = (acc[visit.program] || 0) + 1;
-    return acc;
-  }, {});
-
-  const purposeStats = filteredVisits.reduce((acc: any, visit) => {
-    acc[visit.purpose] = (acc[visit.purpose] || 0) + 1;
-    return acc;
-  }, {});
-
-  const topPurpose = Object.keys(purposeStats).sort((a, b) => purposeStats[b] - purposeStats[a])[0] || 'N/A';
   const topCollege = filteredVisits.reduce((acc: any, visit) => {
     acc[visit.college] = (acc[visit.college] || 0) + 1;
     return acc;
   }, {});
   const topCollegeName = Object.keys(topCollege).sort((a, b) => topCollege[b] - topCollege[a])[0] || 'N/A';
+  
+  const programStats = filteredVisits.reduce((acc: any, visit) => {
+    acc[visit.program] = (acc[visit.program] || 0) + 1;
+    return acc;
+  }, {});
   const topProgram = Object.keys(programStats).sort((a, b) => programStats[b] - programStats[a])[0] || 'N/A';
 
   const generatePDF = () => {
@@ -188,7 +177,6 @@ export default function AdminDashboardPage() {
     doc.text(`Generated on: ${format(new Date(), 'PPP p')}`, 14, 30);
     doc.text(`Timeframe: ${timeFilter.toUpperCase()}`, 14, 37);
     doc.text(`Total Visitors: ${filteredVisits.length}`, 14, 44);
-    doc.text(`Top Department: ${topCollegeName}`, 14, 51);
 
     const tableData = filteredVisits.map(v => [
       v.userName,
@@ -231,22 +219,30 @@ export default function AdminDashboardPage() {
           </h1>
           <p className="text-muted-foreground">Monitor and manage library visits across all departments.</p>
         </div>
-        <Button 
-          variant="default" 
-          className="gap-2 shadow-lg bg-primary hover:bg-primary/90" 
-          onClick={generatePDF} 
-          disabled={isExporting || filteredVisits.length === 0}
-        >
-          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          Export PDF Report
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button 
+            variant="default" 
+            className="gap-2 shadow-lg bg-primary hover:bg-primary/90" 
+            onClick={generatePDF} 
+            disabled={isExporting || filteredVisits.length === 0}
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export PDF Report
+          </Button>
+        </div>
       </div>
 
       {error && (
-        <Alert variant="destructive" className="bg-white">
+        <Alert variant="destructive" className="bg-white border-destructive shadow-md">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>System Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            {error}
+            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={fetchData}>Retry</Button>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -286,10 +282,10 @@ export default function AdminDashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-[#ED1C24]" />
-              Daily Entry Trend
+              Entry Records
             </CardDescription>
             <CardTitle className="text-2xl font-bold text-primary">
-              {filteredVisits.length} Records
+              {filteredVisits.length} Logs
             </CardTitle>
           </CardHeader>
         </Card>
@@ -305,28 +301,34 @@ export default function AdminDashboardPage() {
             <CardDescription>Visualizing entries over the selected timeframe.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}`} />
-                <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-white p-3 border rounded-lg shadow-xl text-xs">
-                          <p className="font-bold text-slate-900">{payload[0].payload.date}</p>
-                          <p className="text-primary">{payload[0].value} Visitors</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar dataKey="visitors" fill="#003399" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-full w-full flex items-center justify-center bg-slate-50 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white p-3 border rounded-lg shadow-xl text-xs">
+                            <p className="font-bold text-slate-900">{payload[0].payload.date}</p>
+                            <p className="text-primary">{payload[0].value} Visitors</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="visitors" fill="#003399" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -336,40 +338,50 @@ export default function AdminDashboardPage() {
               <PieChartIcon className="h-5 w-5 text-[#00A859]" />
               Department Distribution
             </CardTitle>
-            <CardDescription>Breakdown by college (Abbreviated).</CardDescription>
+            <CardDescription>Breakdown by college abbreviations.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={collegeStats}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {collegeStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-white p-2 border rounded-md shadow-lg text-[10px]">
-                          <p className="font-bold">{payload[0].name}</p>
-                          <p className="text-primary">{payload[0].value} visits</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-full w-full flex items-center justify-center bg-slate-50 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+              </div>
+            ) : collegeStats.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={collegeStats}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {collegeStats.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white p-2 border rounded-md shadow-lg text-[10px]">
+                            <p className="font-bold">{payload[0].name}</p>
+                            <p className="text-primary">{payload[0].value} visits</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-sm">
+                No data available for the pie chart.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -378,7 +390,7 @@ export default function AdminDashboardPage() {
         <Card className="lg:col-span-1 border-none shadow-lg bg-white h-fit">
           <CardHeader>
             <CardTitle className="text-lg">Quick Filters</CardTitle>
-            <CardDescription>Refine your statistics.</CardDescription>
+            <CardDescription>Refine your logs.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -470,7 +482,7 @@ export default function AdminDashboardPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
-                        {error ? "Error loading data." : "No matching records found for this timeframe."}
+                        {error ? "Unable to load entries." : "No matching records found."}
                       </TableCell>
                     </TableRow>
                   )}
