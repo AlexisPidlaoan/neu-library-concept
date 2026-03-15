@@ -1,9 +1,10 @@
+
 "use client"
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,9 +45,11 @@ export default function AdminDashboardPage() {
   const [collegeFilter, setCollegeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const hasFetched = useRef(false);
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     if (!profile || profile.role !== 'admin') return;
+    if (hasFetched.current && !force) return;
     
     setLoading(true);
     setError(null);
@@ -61,7 +64,7 @@ export default function AdminDashboardPage() {
       });
       setColleges(collegeSnap.docs.map(doc => doc.data().name));
 
-      // Fetch visits
+      // Fetch visits - Simple query to avoid index requirements
       const q = query(collection(db, 'visits'));
       const querySnapshot = await getDocs(q).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -77,20 +80,23 @@ export default function AdminDashboardPage() {
         date: doc.data().timestamp?.toDate() || new Date(),
       }));
       
-      // Initial sort by date descending
+      // Client-side sort by date descending
       fetchedVisits.sort((a, b) => b.date.getTime() - a.date.getTime());
       
       setVisits(fetchedVisits);
+      hasFetched.current = true;
     } catch (err: any) {
       console.error("Dashboard Data Fetch Error:", err);
-      setError(`Database Error: ${err.message || "Failed to load dashboard data. Check your admin permissions."}`);
+      setError(`Database Error: ${err.message || "Failed to load data."}`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    if (profile?.role === 'admin') {
+      fetchData();
+    }
   }, [profile]);
 
   const filteredVisits = useMemo(() => {
@@ -145,24 +151,28 @@ export default function AdminDashboardPage() {
 
   const collegeStats = useMemo(() => {
     const stats = filteredVisits.reduce((acc: any, visit) => {
-      const name = DEPT_ABBREVIATIONS[visit.college] || visit.college;
+      const name = DEPT_ABBREVIATIONS[visit.college] || visit.college || 'Other';
       acc[name] = (acc[name] || 0) + 1;
       return acc;
     }, {});
     return Object.entries(stats).map(([name, value]) => ({ name, value }));
   }, [filteredVisits]);
 
-  const topCollege = filteredVisits.reduce((acc: any, visit) => {
-    acc[visit.college] = (acc[visit.college] || 0) + 1;
-    return acc;
-  }, {});
-  const topCollegeName = Object.keys(topCollege).sort((a, b) => topCollege[b] - topCollege[a])[0] || 'N/A';
-  
-  const programStats = filteredVisits.reduce((acc: any, visit) => {
-    acc[visit.program] = (acc[visit.program] || 0) + 1;
-    return acc;
-  }, {});
-  const topProgram = Object.keys(programStats).sort((a, b) => programStats[b] - programStats[a])[0] || 'N/A';
+  const topCollegeName = useMemo(() => {
+    const counts = filteredVisits.reduce((acc: any, visit) => {
+      acc[visit.college] = (acc[visit.college] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'N/A';
+  }, [filteredVisits]);
+
+  const topProgram = useMemo(() => {
+    const counts = filteredVisits.reduce((acc: any, visit) => {
+      acc[visit.program] = (acc[visit.program] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'N/A';
+  }, [filteredVisits]);
 
   const generatePDF = () => {
     setIsExporting(true);
@@ -194,7 +204,7 @@ export default function AdminDashboardPage() {
       alternateRowStyles: { fillColor: [245, 247, 250] },
     });
 
-    doc.save(`NEU_Library_Report_${timeFilter}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    doc.save(`NEU_Report_${timeFilter}_${format(new Date(), 'yyyyMMdd')}.pdf`);
     setIsExporting(false);
   };
 
@@ -203,7 +213,7 @@ export default function AdminDashboardPage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="w-full max-w-md text-center p-8 border-none shadow-lg bg-white">
           <CardTitle className="text-destructive mb-2">Access Denied</CardTitle>
-          <CardDescription>You do not have administrative privileges to view this page.</CardDescription>
+          <CardDescription>Administrative privileges required.</CardDescription>
         </Card>
       </div>
     );
@@ -217,10 +227,10 @@ export default function AdminDashboardPage() {
             <LayoutDashboard className="h-8 w-8" />
             Visitor Dashboard
           </h1>
-          <p className="text-muted-foreground">Monitor and manage library visits across all departments.</p>
+          <p className="text-muted-foreground">Monitor library activity and trends.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={fetchData} disabled={loading}>
+          <Button variant="outline" size="icon" onClick={() => fetchData(force = true)} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button 
@@ -230,7 +240,7 @@ export default function AdminDashboardPage() {
             disabled={isExporting || filteredVisits.length === 0}
           >
             {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Export PDF Report
+            Export PDF
           </Button>
         </div>
       </div>
@@ -238,10 +248,10 @@ export default function AdminDashboardPage() {
       {error && (
         <Alert variant="destructive" className="bg-white border-destructive shadow-md">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>System Error</AlertTitle>
+          <AlertTitle>Connection Error</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-4">
             {error}
-            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={fetchData}>Retry</Button>
+            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => fetchData(true)}>Retry</Button>
           </AlertDescription>
         </Alert>
       )}
@@ -258,8 +268,8 @@ export default function AdminDashboardPage() {
         </Card>
         <Card className="border-none shadow-sm bg-white">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <School className="h-4 w-4 text-[#00A859]" />
+            <CardDescription className="flex items-center gap-2 text-[#00A859]">
+              <School className="h-4 w-4" />
               Top Department
             </CardDescription>
             <CardTitle className="text-lg font-bold truncate text-primary">
@@ -269,8 +279,8 @@ export default function AdminDashboardPage() {
         </Card>
         <Card className="border-none shadow-sm bg-white">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-[#FFD54F]" />
+            <CardDescription className="flex items-center gap-2 text-[#FFD54F]">
+              <GraduationCap className="h-4 w-4" />
               Top Program
             </CardDescription>
             <CardTitle className="text-lg font-bold truncate text-primary">
@@ -280,12 +290,12 @@ export default function AdminDashboardPage() {
         </Card>
         <Card className="border-none shadow-sm bg-white">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-[#ED1C24]" />
-              Entry Records
+            <CardDescription className="flex items-center gap-2 text-[#ED1C24]">
+              <TrendingUp className="h-4 w-4" />
+              System Status
             </CardDescription>
             <CardTitle className="text-2xl font-bold text-primary">
-              {filteredVisits.length} Logs
+              Active
             </CardTitle>
           </CardHeader>
         </Card>
@@ -294,11 +304,10 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <Card className="lg:col-span-8 border-none shadow-lg bg-white">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Visitor Traffic Trend
+            <CardTitle className="text-lg flex items-center gap-2 text-primary">
+              <TrendingUp className="h-5 w-5" />
+              Traffic Trend
             </CardTitle>
-            <CardDescription>Visualizing entries over the selected timeframe.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] w-full pt-4">
             {loading ? (
@@ -334,11 +343,10 @@ export default function AdminDashboardPage() {
 
         <Card className="lg:col-span-4 border-none shadow-lg bg-white">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <PieChartIcon className="h-5 w-5 text-[#00A859]" />
-              Department Distribution
+            <CardTitle className="text-lg flex items-center gap-2 text-primary">
+              <PieChartIcon className="h-5 w-5" />
+              College Breakdown
             </CardTitle>
-            <CardDescription>Breakdown by college abbreviations.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] w-full pt-4">
             {loading ? (
@@ -379,7 +387,7 @@ export default function AdminDashboardPage() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-sm">
-                No data available for the pie chart.
+                No departmental data yet.
               </div>
             )}
           </CardContent>
@@ -389,15 +397,14 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <Card className="lg:col-span-1 border-none shadow-lg bg-white h-fit">
           <CardHeader>
-            <CardTitle className="text-lg">Quick Filters</CardTitle>
-            <CardDescription>Refine your logs.</CardDescription>
+            <CardTitle className="text-lg">Filters</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Time Interval</label>
+              <label className="text-sm font-medium">Timeframe</label>
               <Select value={timeFilter} onValueChange={setTimeFilter}>
                 <SelectTrigger className="w-full bg-slate-50 border-primary/10">
-                  <SelectValue placeholder="Timeframe" />
+                  <SelectValue placeholder="Select timeframe" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">Today</SelectItem>
@@ -408,7 +415,7 @@ export default function AdminDashboardPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Department Filter</label>
+              <label className="text-sm font-medium">Department</label>
               <Select value={collegeFilter} onValueChange={setCollegeFilter}>
                 <SelectTrigger className="w-full bg-slate-50 border-primary/10">
                   <SelectValue placeholder="All Departments" />
@@ -422,11 +429,11 @@ export default function AdminDashboardPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Search Entries</label>
+              <label className="text-sm font-medium">Quick Search</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Name, program, or purpose" 
+                  placeholder="Visitor name..." 
                   className="pl-10 bg-slate-50 border-primary/10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -438,17 +445,17 @@ export default function AdminDashboardPage() {
 
         <Card className="lg:col-span-3 border-none shadow-lg bg-white overflow-hidden">
           <CardHeader className="border-b bg-slate-50/50">
-            <CardTitle className="text-lg">Detailed Entry Log</CardTitle>
+            <CardTitle className="text-lg">Visitor Log</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-h-[400px]">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Visitor</TableHead>
                     <TableHead>Dept / Program</TableHead>
                     <TableHead>Purpose</TableHead>
-                    <TableHead>Time Entry</TableHead>
+                    <TableHead>Timestamp</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -475,14 +482,14 @@ export default function AdminDashboardPage() {
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate font-medium text-slate-700">{visit.purpose}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {format(visit.date, 'MMM dd, yyyy HH:mm')}
+                          {format(visit.date, 'MMM dd, HH:mm')}
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
-                        {error ? "Unable to load entries." : "No matching records found."}
+                        No visitors found for this criteria.
                       </TableCell>
                     </TableRow>
                   )}
