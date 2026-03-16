@@ -1,10 +1,9 @@
-
 "use client"
 
 import { useEffect, useState, useMemo } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuthContext } from '@/hooks/use-auth';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, doc, updateDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,10 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Search, ShieldAlert, ShieldCheck, Loader2, Edit3, Check, X, DatabaseBackup } from 'lucide-react';
+import { Users, Search, ShieldAlert, ShieldCheck, Loader2, Edit3, Check, X, DatabaseBackup, Info, Fingerprint } from 'lucide-react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { subDays, startOfDay } from 'date-fns';
+import { subDays } from 'date-fns';
 
 const { firestore: db } = initializeFirebase();
 
@@ -27,23 +26,20 @@ const SAMPLE_STUDENTS = [
 
 const SAMPLE_ADMINS = [
   { id: 'sample-a1', displayName: 'Alexis Pidlaoan', email: 'alexis.pidlaoan@neu.edu.ph', role: 'admin' },
-  { id: 'sample-a2', displayName: 'Library Supervisor', email: 'admin.library@neu.edu.ph', role: 'admin' },
-  { id: 'sample-a3', displayName: 'Library Assistant', email: 'staff.library@neu.edu.ph', role: 'admin' }
+  { id: 'sample-a2', displayName: 'Library Supervisor', email: 'admin.library@neu.edu.ph', role: 'admin' }
 ];
 
 const SAMPLE_VISITS = [
   { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Research for a paper', daysAgo: 0 },
-  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Arts and Sciences (CAS)', program: 'BS in Psychology', purpose: 'Study for exams', daysAgo: 0 },
-  { userId: 'sample-s3', userName: 'Jose Rizal', userEmail: 'jose.rizal@neu.edu.ph', college: 'College of Education (CED)', program: 'Bachelor of Secondary Education', purpose: 'Borrow/return books', daysAgo: 1 },
-  { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Use library computers', daysAgo: 2 },
-  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Arts and Sciences (CAS)', program: 'BS in Psychology', purpose: 'Group project meeting', daysAgo: 3 },
-  { userId: 'sample-s3', userName: 'Jose Rizal', userEmail: 'jose.rizal@neu.edu.ph', college: 'College of Education (CED)', program: 'Bachelor of Secondary Education', purpose: 'Consult with Librarian', daysAgo: 4 },
-  { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Thesis Work', daysAgo: 5 },
-  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Business Administration (CBA)', program: 'BSBA Major in Financial Management', purpose: 'Study for Exams', daysAgo: 6 },
+  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Arts and Sciences (CAS)', program: 'BS in Psychology', purpose: 'Study for exams', daysAgo: 1 },
+  { userId: 'sample-s3', userName: 'Jose Rizal', userEmail: 'jose.rizal@neu.edu.ph', college: 'College of Education (CED)', program: 'Bachelor of Secondary Education', purpose: 'Borrow/return books', daysAgo: 2 },
+  { userId: 'sample-s1', userName: 'Juan Dela Cruz', userEmail: 'juan.delacruz@neu.edu.ph', college: 'College of Informatics and Computing Studies (CICS)', program: 'BS in Computer Science', purpose: 'Use library computers', daysAgo: 3 },
+  { userId: 'sample-s2', userName: 'Maria Clara', userEmail: 'maria.clara@neu.edu.ph', college: 'College of Arts and Sciences (CAS)', program: 'BS in Psychology', purpose: 'Group project meeting', daysAgo: 4 },
+  { userId: 'sample-s3', userName: 'Jose Rizal', userEmail: 'jose.rizal@neu.edu.ph', college: 'College of Education (CED)', program: 'Bachelor of Secondary Education', purpose: 'Consult with Librarian', daysAgo: 5 },
 ];
 
 export default function UserManagementPage() {
-  const { profile } = useAuth();
+  const { profile, user: authUser } = useAuthContext();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,14 +58,10 @@ export default function UserManagementPage() {
       const q = query(collection(db, 'users'));
       const querySnapshot = await getDocs(q);
       const fetchedUsers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
       fetchedUsers.sort((a: any, b: any) => (a.displayName || "").localeCompare(b.displayName || ""));
       setUsers(fetchedUsers);
     } catch (error) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: 'users',
-        operation: 'list'
-      }));
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'users', operation: 'list' }));
     } finally {
       setLoading(false);
     }
@@ -82,10 +74,14 @@ export default function UserManagementPage() {
       const now = new Date();
       const isoNow = now.toISOString();
 
+      // Seed Users and Admins
       [...SAMPLE_STUDENTS, ...SAMPLE_ADMINS].forEach(u => {
         const userRef = doc(db, 'users', u.id);
         batch.set(userRef, {
-          ...u,
+          email: u.email,
+          displayName: u.displayName,
+          studentId: u.studentId || null,
+          role: u.role,
           isBlocked: false,
           createdAt: isoNow,
           updatedAt: isoNow
@@ -97,7 +93,8 @@ export default function UserManagementPage() {
         }
       });
 
-      SAMPLE_VISITS.forEach((v, index) => {
+      // Seed Visits with varied dates
+      SAMPLE_VISITS.forEach((v) => {
         const visitRef = doc(collection(db, 'visits'));
         const visitDate = subDays(now, v.daysAgo);
         batch.set(visitRef, {
@@ -112,10 +109,15 @@ export default function UserManagementPage() {
       });
 
       await batch.commit();
-      toast({ title: 'Database Populated', description: 'Sample users and library visits added successfully.' });
+      toast({ title: 'Database Seeded', description: 'Sample data has been successfully populated.' });
       fetchUsers();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Seed Failed', description: 'Ensure you have permissions.' });
+    } catch (error: any) {
+      console.error("Detailed Seed Error:", error);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Seed Failed', 
+        description: `Error: ${error.message || 'Permission denied'}. UID: ${authUser?.uid}` 
+      });
     } finally {
       setIsSeeding(false);
     }
@@ -193,7 +195,7 @@ export default function UserManagementPage() {
             variant="outline" 
             onClick={handleSeedData} 
             disabled={isSeeding}
-            className="gap-2 border-primary/20 hover:bg-primary/5 text-primary"
+            className="gap-2 border-primary/20 hover:bg-primary/5 text-primary bg-white"
           >
             {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />}
             Seed Sample Data
@@ -210,7 +212,19 @@ export default function UserManagementPage() {
         </div>
       </div>
 
-      <Card className="border-none shadow-lg overflow-hidden">
+      <Card className="mb-6 bg-slate-50 border-none shadow-inner p-6 space-y-3">
+        <div className="flex items-center gap-3 text-sm text-slate-600">
+          <Info className="h-5 w-5 text-primary shrink-0" />
+          <span>Currently logged in as: <strong>{authUser?.email}</strong></span>
+        </div>
+        <div className="flex items-center gap-3 text-sm text-slate-600">
+          <Fingerprint className="h-5 w-5 text-[#ED1C24] shrink-0" />
+          <span className="font-mono bg-white px-2 py-1 rounded border border-slate-200">UID: {authUser?.uid}</span>
+          <span className="text-xs text-slate-400">(This UID is used for Bootstrap Admin permissions)</span>
+        </div>
+      </Card>
+
+      <Card className="border-none shadow-lg overflow-hidden bg-white">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-slate-50">
