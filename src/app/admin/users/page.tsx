@@ -116,7 +116,7 @@ export default function UserManagementPage() {
       toast({ 
         variant: 'destructive', 
         title: 'Seed Failed', 
-        description: `Error: ${error.message || 'Permission denied'}. UID: ${authUser?.uid}` 
+        description: `Error: ${error.message || 'Permission denied'}.` 
       });
     } finally {
       setIsSeeding(false);
@@ -125,10 +125,10 @@ export default function UserManagementPage() {
 
   const formatStudentId = (value: string) => {
     const digits = value.replace(/\D/g, "");
-    const truncated = digits.slice(0, 10);
-    let formatted = truncated;
-    if (truncated.length > 2) formatted = `${truncated.slice(0, 2)}-${truncated.slice(2)}`;
-    if (truncated.length > 7) formatted = `${truncated.slice(0, 2)}-${truncated.slice(2, 7)}-${truncated.slice(7)}`;
+    if (digits.length === 0) return "";
+    let formatted = digits.slice(0, 10);
+    if (digits.length > 2) formatted = `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    if (digits.length > 7) formatted = `${digits.slice(0, 2)}-${digits.slice(2, 7)}-${digits.slice(7, 10)}`;
     return formatted;
   };
 
@@ -153,7 +153,7 @@ export default function UserManagementPage() {
   const handleUpdateStudentId = async (userId: string) => {
     const idPattern = /^\d{2}-\d{5}-\d{3}$/;
     if (editStudentId && !idPattern.test(editStudentId)) {
-      toast({ variant: 'destructive', title: 'Invalid Format' });
+      toast({ variant: 'destructive', title: 'Invalid Format', description: 'Expected YY-XXXXX-XXX' });
       return;
     }
 
@@ -269,7 +269,7 @@ export default function UserManagementPage() {
                             value={editStudentId} 
                             onChange={handleEditIdChange}
                             maxLength={12}
-                            placeholder="12-34567-890"
+                            placeholder="21-12345-678"
                           />
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-success" onClick={() => handleUpdateStudentId(user.id)}>
                             <Check className="h-4 w-4" />
