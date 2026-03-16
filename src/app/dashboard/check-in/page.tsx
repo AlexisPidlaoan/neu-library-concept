@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -20,62 +21,6 @@ import { suggestPurpose } from '@/ai/flows/smart-purpose-suggester';
 
 const { firestore: db } = initializeFirebase();
 
-const PROGRAMS_MAP: Record<string, string[]> = {
-  "College of Arts and Sciences (CAS)": [
-    "BA in Economics",
-    "BA in Political Science",
-    "BS in Biology",
-    "BS in Psychology",
-    "Bachelor of Public Administration"
-  ],
-  "College of Business Administration (CBA)": [
-    "BS in Entrepreneurship",
-    "BS in Real Estate Management",
-    "BSBA Major in Financial Management",
-    "BSBA Major in Human Resource Development Management",
-    "BSBA Major in Legal Management",
-    "BSBA Major in Marketing Management"
-  ],
-  "College of Communication (COC)": [
-    "BA in Broadcasting",
-    "BA in Communication",
-    "BA in Journalism"
-  ],
-  "College of Education (CED)": [
-    "Bachelor of Elementary Education",
-    "Bachelor of Secondary Education"
-  ],
-  "College of Engineering and Architecture (CEA)": [
-    "BS in Architecture",
-    "BS in Astronomy",
-    "BS in Civil Engineering",
-    "BS in Electrical Engineering",
-    "BS in Electronics Engineering",
-    "BS in Industrial Engineering",
-    "BS in Mechanical Engineering"
-  ],
-  "College of Informatics and Computing Studies (CICS)": [
-    "Bachelor of Library and Information Science",
-    "BS in Computer Science",
-    "BS in Entertainment and Multimedia Computing",
-    "BS in Information System",
-    "BS in Information Technology"
-  ],
-  "Medical & Health Sciences": [
-    "BS in Medical Technology",
-    "BS in Nursing",
-    "BS in Physical Therapy",
-    "BS in Respiratory Therapy",
-    "Diploma in Midwifery"
-  ],
-  "Specialized Colleges": [
-    "Bachelor of Music",
-    "BS in Agriculture",
-    "BS in Criminology",
-    "BA in Foreign Service"
-  ]
-};
-
 const COMMON_PURPOSES = [
   "Reading Books",
   "Thesis / Research",
@@ -95,26 +40,19 @@ export default function CheckInPage() {
   const [purposeSelection, setPurposeSelection] = useState('');
   const [customPurpose, setCustomPurpose] = useState('');
   const [college, setCollege] = useState('');
-  const [program, setProgram] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const collegesQuery = useMemoFirebase(() => query(collection(db, 'colleges'), orderBy('name', 'asc')), []);
-  const { data: dbColleges, isLoading: loadingColleges } = useCollection(collegesQuery);
+  const { data: dbColleges } = useCollection(collegesQuery);
 
-  const availablePrograms = college ? (PROGRAMS_MAP[college] || []) : [];
   const isCustomPurpose = purposeSelection === "Other / Custom Purpose...";
   const finalPurpose = isCustomPurpose ? customPurpose : purposeSelection;
 
   const isGuest = profile?.isGuest === true;
-  const headerName = isGuest ? 'Guest Student' : (profile?.displayName || 'User');
-  const loggedVisitName = isGuest ? (guestName || 'Guest Student') : (profile?.displayName || 'User');
-
-  useEffect(() => {
-    setProgram('');
-  }, [college]);
+  const headerName = isGuest ? (guestName || 'Guest User') : (profile?.displayName || 'User');
 
   useEffect(() => {
     if (isCustomPurpose && customPurpose.length > 2) {
@@ -138,7 +76,7 @@ export default function CheckInPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!profile || !college || !finalPurpose || (userType === 'student' && availablePrograms.length > 0 && !program) || (isGuest && !guestName.trim())) {
+    if (!profile || !college || !finalPurpose || (isGuest && !guestName.trim())) {
       toast({
         variant: 'destructive',
         title: 'Missing information',
@@ -151,12 +89,11 @@ export default function CheckInPage() {
     
     const visitData = {
       userId: profile.id,
-      userName: loggedVisitName,
+      userName: headerName,
       userEmail: profile.email || 'guest@terminal',
       userType: userType,
       isEmployee: userType !== 'student',
       college,
-      program: userType === 'student' ? program : 'N/A',
       purpose: finalPurpose,
       timestamp: serverTimestamp(),
     };
@@ -167,7 +104,6 @@ export default function CheckInPage() {
         setPurposeSelection('');
         setCustomPurpose('');
         setCollege('');
-        setProgram('');
         setGuestName('');
         setIsSubmitting(false);
         setTimeout(() => setShowSuccess(false), 5000);
@@ -212,7 +148,7 @@ export default function CheckInPage() {
           <Avatar className="h-24 w-24 border-4 border-white/20 shadow-lg">
             <AvatarImage src={profile?.photoURL || ''} />
             <AvatarFallback className="text-2xl bg-white/10">
-              {isGuest ? <UserIcon className="h-10 w-10" /> : (profile?.displayName?.charAt(0) || 'S')}
+              {isGuest ? <UserIcon className="h-10 w-10" /> : (profile?.displayName?.charAt(0) || 'U')}
             </AvatarFallback>
           </Avatar>
           <div className="text-center md:text-left">
@@ -223,8 +159,8 @@ export default function CheckInPage() {
               {profile?.studentId ? `ID: ${profile.studentId}` : (profile?.email || 'Guest Session')}
             </p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
-              <Badge variant="secondary" className="bg-white/20 text-white border-none px-3 py-1">
-                {userType.toUpperCase()}
+              <Badge variant="secondary" className="bg-white/20 text-white border-none px-3 py-1 uppercase">
+                {userType}
               </Badge>
             </div>
           </div>
@@ -256,15 +192,15 @@ export default function CheckInPage() {
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="student" id="student" />
-                    <Label htmlFor="student" className="flex items-center gap-1 cursor-pointer"><UserIcon className="h-4 w-4" /> Student</Label>
+                    <Label htmlFor="student" className="flex items-center gap-1 cursor-pointer">Student</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="teacher" id="teacher" />
-                    <Label htmlFor="teacher" className="flex items-center gap-1 cursor-pointer"><School className="h-4 w-4" /> Teacher</Label>
+                    <Label htmlFor="teacher" className="flex items-center gap-1 cursor-pointer">Teacher</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="staff" id="staff" />
-                    <Label htmlFor="staff" className="flex items-center gap-1 cursor-pointer"><Briefcase className="h-4 w-4" /> Staff</Label>
+                    <Label htmlFor="staff" className="flex items-center gap-1 cursor-pointer">Staff</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -295,22 +231,6 @@ export default function CheckInPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {userType === 'student' && (
-                <div className="space-y-2">
-                  <Label htmlFor="program" className="text-xs font-bold text-slate-400 uppercase tracking-wider">Program / Course</Label>
-                  <Select value={program} onValueChange={setProgram}>
-                    <SelectTrigger id="program" className="h-12 border-slate-100 bg-slate-50">
-                      <SelectValue placeholder="Select Program" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availablePrograms.map((p) => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               <div className="space-y-4">
                 <div className="space-y-2">
