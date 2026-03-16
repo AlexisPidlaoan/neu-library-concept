@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -9,7 +9,7 @@ import {
   GoogleAuthProvider,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -38,8 +38,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [pendingStudentId, setPendingStudentId] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  
-  const isSearchingId = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -48,12 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (firebaseUser) {
           setUser(firebaseUser);
 
-          if (isSearchingId.current) {
-            setLoading(false);
-            return;
-          }
-
-          // First check if user is an admin
+          // Check for admin status
           const adminDoc = await getDoc(doc(db, 'admins', firebaseUser.uid));
           const isAdmin = adminDoc.exists() || (firebaseUser.email && (
             firebaseUser.email === 'jcesperanza@neu.edu.ph' || 
@@ -73,7 +66,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setLoading(false);
               return;
             }
-            setProfile({ ...userData, id: firebaseUser.uid, role: isAdmin ? 'admin' : userData.role || 'student' });
+            setProfile({ 
+              ...userData, 
+              id: firebaseUser.uid, 
+              role: isAdmin ? 'admin' : userData.role || 'student' 
+            });
           } else if (!firebaseUser.isAnonymous) {
             // New user from Google Login
             const email = firebaseUser.email || "";
@@ -116,14 +113,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [auth, db]);
+  }, []);
 
   const login = async (asAdmin = false) => {
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       
-      // Check if user is an admin by UID or Email
       const adminDoc = await getDoc(doc(db, 'admins', result.user.uid));
       const isAdminUser = adminDoc.exists() || (result.user.email && (
         result.user.email === 'jcesperanza@neu.edu.ph' || 
