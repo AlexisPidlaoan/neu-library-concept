@@ -1,10 +1,9 @@
-
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   onAuthStateChanged, 
-  signInWithRedirect, 
+  signInWithPopup, 
   GoogleAuthProvider, 
   signOut, 
   User as FirebaseUser,
@@ -65,9 +64,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Enforce Institutional Domain
+        // Institutional domain check
         const isInstitutional = firebaseUser.email?.endsWith('@neu.edu.ph');
-        const isWhitelisted = ['pampa4858@gmail.com', 'admin@neu.edu.ph'].includes(firebaseUser.email || '');
+        const isWhitelisted = ['pampa4858@gmail.com', 'admin@neu.edu.ph', 'alexis.pidlaoan@neu.edu.ph', 'jcesperanza@neu.edu.ph'].includes(firebaseUser.email || '');
         
         if (!firebaseUser.isAnonymous && !isInstitutional && !isWhitelisted) {
           await signOut(auth);
@@ -91,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             toast({
               variant: 'destructive',
               title: 'Account Blocked',
-              description: 'Your account has been restricted by the library administration.'
+              description: 'Your account has been restricted by library administration.'
             });
             setLoading(false);
             return;
@@ -139,9 +138,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (isAdmin: boolean) => {
     try {
-      await signInWithRedirect(auth, googleProvider);
-    } catch (error) {
-      console.error("Login Error:", error);
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user') {
+        toast({
+          title: 'Login Cancelled',
+          description: 'The sign-in window was closed before completion.',
+        });
+      } else if (error.code === 'auth/popup-blocked') {
+        toast({
+          title: 'Popup Blocked',
+          description: 'Please enable popups for this site to sign in.',
+        });
+      }
     }
   };
 
@@ -156,13 +165,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userData.isBlocked) {
           toast({
             variant: 'destructive',
-            title: 'Blocked',
-            description: 'This ID has been blocked from library access.'
+            title: 'Access Denied',
+            description: 'This ID has been restricted by administration.'
           });
           setLoading(false);
           return;
         }
         setProfile({ ...userData, id: querySnapshot.docs[0].id });
+        setUser({ uid: querySnapshot.docs[0].id, displayName: userData.displayName } as any);
         router.push('/dashboard/check-in');
       } else {
         setPendingStudentId(id);
@@ -215,5 +225,3 @@ export const useAuthContext = () => {
   }
   return context;
 };
-
-export const useAuth = useAuthContext;
