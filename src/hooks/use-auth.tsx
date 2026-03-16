@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -22,7 +21,8 @@ const googleProvider = new GoogleAuthProvider();
 const ADMIN_EMAILS = [
   'alexis.pidlaoan@neu.edu.ph', 
   'pampa4858@gmail.com', 
-  'admin@neu.edu.ph'
+  'admin@neu.edu.ph',
+  'jcesperanza@neu.edu.ph'
 ];
 
 interface AuthContextType {
@@ -73,18 +73,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (firebaseUser) {
           setUser(firebaseUser);
 
-          // If we are currently searching for an ID, don't update the profile yet
           if (isSearchingId.current) {
             return;
           }
 
-          // If we are in an active terminal session, we trust the profile manually set by loginWithId or continueAsGuest
           if (isTerminalSession.current && profile) {
             setLoading(false);
             return;
           }
 
-          // Optimization: Skip refetching if user hasn't changed
           if (profileFetchedRef.current === firebaseUser.uid && profile && !isTerminalSession.current) {
             setLoading(false);
             return;
@@ -95,7 +92,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isAdminEmail = !!(email && ADMIN_EMAILS.includes(email));
           const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com');
 
-          // Restrict standard Google users to institutional domain
           if (isGoogleUser && !isInstitutional && !isAdminEmail) {
             await signOut(auth);
             toast({
@@ -110,14 +106,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return;
           }
 
-          // If it's a guest account that isn't handled by the terminal session logic yet
           if (firebaseUser.isAnonymous && !isTerminalSession.current && !pendingStudentId) {
              const guestProfile = {
               id: firebaseUser.uid,
               displayName: 'Guest Student',
               role: 'student',
               isGuest: true,
-              studentId: null
+              studentId: profile?.studentId || null
             };
             setProfile(guestProfile);
             setLoading(false);
@@ -142,7 +137,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               return;
             }
 
-            // Ensure Admin role is synchronized for authorized emails
             if (isAdminEmail && userData.role !== 'admin') {
               await updateDoc(userDocRef, { role: 'admin', updatedAt: serverTimestamp() });
               userData.role = 'admin';
@@ -152,7 +146,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(userData);
             profileFetchedRef.current = firebaseUser.uid;
           } else if (!firebaseUser.isAnonymous) {
-            // New User Profile Creation (Non-Guest)
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
@@ -208,7 +201,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     isTerminalSession.current = false;
     
-    // Normalize email shorthand
     const finalEmail = email.toLowerCase() === 'admin' ? 'admin@neu.edu.ph' : email;
 
     try {
@@ -232,7 +224,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     isSearchingId.current = true;
     try {
-      // Sign in anonymously to allow searching the database if not already signed in
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
@@ -262,7 +253,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('This Student ID is currently restricted.');
       }
 
-      // Found a matching user! Establish terminal session
       isTerminalSession.current = true;
       isSearchingId.current = false;
       setPendingStudentId(null);
@@ -282,7 +272,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const guestProfile = {
       id: `guest-${Date.now()}`,
       displayName: 'Guest Student',
-      studentId: pendingStudentId, // typed ID from terminal
+      studentId: pendingStudentId,
       role: 'student',
       isGuest: true
     };
