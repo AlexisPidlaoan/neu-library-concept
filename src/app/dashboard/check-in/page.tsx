@@ -1,8 +1,7 @@
-
 "use client"
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuthContext } from '@/hooks/use-auth';
 import { initializeFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -11,9 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X, Type, Sparkles } from 'lucide-react';
+import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X, Type, Briefcase } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { suggestPurpose } from '@/ai/flows/smart-purpose-suggester';
@@ -88,9 +88,10 @@ const COMMON_PURPOSES = [
 ];
 
 export default function CheckInPage() {
-  const { profile } = useAuth();
+  const { profile } = useAuthContext();
   const { toast } = useToast();
   const [guestName, setGuestName] = useState('');
+  const [userType, setUserType] = useState<'student' | 'teacher' | 'staff'>('student');
   const [purposeSelection, setPurposeSelection] = useState('');
   const [customPurpose, setCustomPurpose] = useState('');
   const [college, setCollege] = useState('');
@@ -103,13 +104,13 @@ export default function CheckInPage() {
   const collegesQuery = useMemoFirebase(() => query(collection(db, 'colleges'), orderBy('name', 'asc')), []);
   const { data: dbColleges, isLoading: loadingColleges } = useCollection(collegesQuery);
 
-  const availablePrograms = college ? PROGRAMS_MAP[college] || [] : [];
+  const availablePrograms = college ? (PROGRAMS_MAP[college] || []) : [];
   const isCustomPurpose = purposeSelection === "Other / Custom Purpose...";
   const finalPurpose = isCustomPurpose ? customPurpose : purposeSelection;
 
   const isGuest = profile?.isGuest === true;
-  const headerName = isGuest ? 'Guest Student' : (profile?.displayName || 'Student');
-  const loggedVisitName = isGuest ? (guestName || 'Guest Student') : (profile?.displayName || 'Student');
+  const headerName = isGuest ? 'Guest Student' : (profile?.displayName || 'User');
+  const loggedVisitName = isGuest ? (guestName || 'Guest Student') : (profile?.displayName || 'User');
 
   useEffect(() => {
     setProgram('');
@@ -137,11 +138,11 @@ export default function CheckInPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!profile || !college || !finalPurpose || (availablePrograms.length > 0 && !program) || (isGuest && !guestName.trim())) {
+    if (!profile || !college || !finalPurpose || (userType === 'student' && availablePrograms.length > 0 && !program) || (isGuest && !guestName.trim())) {
       toast({
         variant: 'destructive',
         title: 'Missing information',
-        description: 'Please complete all fields to log your visit.'
+        description: 'Please complete all required fields.'
       });
       return;
     }
@@ -152,8 +153,10 @@ export default function CheckInPage() {
       userId: profile.id,
       userName: loggedVisitName,
       userEmail: profile.email || 'guest@terminal',
+      userType: userType,
+      isEmployee: userType !== 'student',
       college,
-      program,
+      program: userType === 'student' ? program : 'N/A',
       purpose: finalPurpose,
       timestamp: serverTimestamp(),
     };
@@ -204,7 +207,7 @@ export default function CheckInPage() {
         </div>
       )}
 
-      <Card className="border-none shadow-xl bg-primary text-white overflow-hidden">
+      <Card className="border-none shadow-xl bg-[#003399] text-white overflow-hidden">
         <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 border-4 border-white/20 shadow-lg">
             <AvatarImage src={profile?.photoURL || ''} />
@@ -217,82 +220,88 @@ export default function CheckInPage() {
               {headerName}
             </h2>
             <p className="text-white/80 text-lg mb-2">
-              ID: <span className="font-mono font-bold">{profile?.studentId || 'No ID'}</span>
+              {profile?.studentId ? `ID: ${profile.studentId}` : (profile?.email || 'Guest Session')}
             </p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
-              <Badge variant="secondary" className={`${isGuest ? 'bg-[#FFD54F] text-primary' : 'bg-[#00A859] text-white'} border-none px-3 py-1`}>
-                <UserIcon className="h-3 w-3 mr-1" />
-                {isGuest ? 'Guest Visitor' : 'Student'}
+              <Badge variant="secondary" className="bg-white/20 text-white border-none px-3 py-1">
+                {userType.toUpperCase()}
               </Badge>
-              {profile?.role === 'admin' && (
-                <Badge variant="secondary" className="bg-[#ED1C24] text-white border-none px-3 py-1">
-                  Administrator
-                </Badge>
-              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="max-w-2xl mx-auto">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Library Check-in</h1>
-          <p className="text-muted-foreground font-medium">Complete the details to log your entry.</p>
+        <div className="mb-8 text-center text-slate-900">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Visitor Check-in</h1>
+          <p className="text-slate-500 font-medium">Please provide your details below</p>
         </div>
 
         <Card className="border-none shadow-xl bg-white">
           <form onSubmit={handleSubmit}>
-            <CardHeader className="border-b border-primary/5">
-              <CardTitle className="flex items-center gap-2 text-primary">
-                <BookOpen className="h-5 w-5 text-[#00A859]" />
-                Entry Information
+            <CardHeader className="border-b border-slate-100">
+              <CardTitle className="flex items-center gap-2 text-[#003399]">
+                <BookOpen className="h-5 w-5" />
+                Record Entry
               </CardTitle>
-              <CardDescription>Select your department and academic program.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
+              
+              <div className="space-y-3">
+                <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">I am a:</Label>
+                <RadioGroup 
+                  defaultValue="student" 
+                  className="flex gap-4" 
+                  onValueChange={(v: any) => setUserType(v)}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="student" id="student" />
+                    <Label htmlFor="student" className="flex items-center gap-1 cursor-pointer"><UserIcon className="h-4 w-4" /> Student</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="teacher" id="teacher" />
+                    <Label htmlFor="teacher" className="flex items-center gap-1 cursor-pointer"><School className="h-4 w-4" /> Teacher</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="staff" id="staff" />
+                    <Label htmlFor="staff" className="flex items-center gap-1 cursor-pointer"><Briefcase className="h-4 w-4" /> Staff</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               {isGuest && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Label htmlFor="guestName" className="flex items-center gap-2 text-primary/80">
-                    <Type className="h-4 w-4 text-[#ED1C24]" />
-                    Full Name
-                  </Label>
+                <div className="space-y-2">
+                  <Label htmlFor="guestName" className="text-xs font-bold text-slate-400 uppercase tracking-wider">Full Name</Label>
                   <Input 
                     id="guestName"
-                    placeholder="Enter your full name"
+                    placeholder="Enter your name"
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
-                    className="h-12 border-primary/10 bg-white"
+                    className="h-12 border-slate-100 bg-slate-50"
                   />
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="college" className="flex items-center gap-2 text-primary/80">
-                  <School className="h-4 w-4 text-[#FFD54F]" />
-                  College Department
-                </Label>
-                <Select value={college} onValueChange={setCollege} disabled={loadingColleges}>
-                  <SelectTrigger id="college" className="h-12 border-primary/10 bg-white">
-                    <SelectValue placeholder={loadingColleges ? "Loading Departments..." : "Select Department"} />
+                <Label htmlFor="college" className="text-xs font-bold text-slate-400 uppercase tracking-wider">College / Department</Label>
+                <Select value={college} onValueChange={setCollege}>
+                  <SelectTrigger id="college" className="h-12 border-slate-100 bg-slate-50">
+                    <SelectValue placeholder="Select College" />
                   </SelectTrigger>
                   <SelectContent>
-                    {dbColleges && dbColleges.length > 0 ? (
-                      dbColleges.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>No departments configured</SelectItem>
-                    )}
+                    {dbColleges?.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {availablePrograms.length > 0 && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Label htmlFor="program" className="text-primary/80">Academic Program</Label>
+              {userType === 'student' && (
+                <div className="space-y-2">
+                  <Label htmlFor="program" className="text-xs font-bold text-slate-400 uppercase tracking-wider">Program / Course</Label>
                   <Select value={program} onValueChange={setProgram}>
-                    <SelectTrigger id="program" className="h-12 border-primary/10 bg-white">
-                      <SelectValue placeholder="Select Academic Program" />
+                    <SelectTrigger id="program" className="h-12 border-slate-100 bg-slate-50">
+                      <SelectValue placeholder="Select Program" />
                     </SelectTrigger>
                     <SelectContent>
                       {availablePrograms.map((p) => (
@@ -305,10 +314,10 @@ export default function CheckInPage() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="purpose-select" className="text-primary/80">Purpose of Visit</Label>
+                  <Label htmlFor="purpose-select" className="text-xs font-bold text-slate-400 uppercase tracking-wider">Purpose of Visit</Label>
                   <Select value={purposeSelection} onValueChange={setPurposeSelection}>
-                    <SelectTrigger id="purpose-select" className="h-12 border-primary/10 bg-white">
-                      <SelectValue placeholder="Select Reason for Visit" />
+                    <SelectTrigger id="purpose-select" className="h-12 border-slate-100 bg-slate-50">
+                      <SelectValue placeholder="What brings you to the library?" />
                     </SelectTrigger>
                     <SelectContent>
                       {COMMON_PURPOSES.map((p) => (
@@ -319,42 +328,30 @@ export default function CheckInPage() {
                 </div>
 
                 {isCustomPurpose && (
-                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <Label htmlFor="custom-purpose" className="text-xs font-semibold text-primary flex items-center gap-1">
-                      <Keyboard className="h-3 w-3 text-[#ED1C24]" />
-                      Custom Purpose
-                    </Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="custom-purpose" className="text-xs font-bold text-slate-400 uppercase tracking-wider">Details</Label>
                     <div className="relative">
                       <Input
                         id="custom-purpose"
-                        placeholder="Start typing your reason..."
+                        placeholder="Please specify..."
                         value={customPurpose}
                         onChange={(e) => setCustomPurpose(e.target.value)}
-                        autoComplete="off"
-                        className="h-12 border-2 border-primary/10 focus:border-primary bg-white pr-10"
+                        className="h-12 border-slate-100 bg-slate-50 pr-10"
                       />
-                      {isAiLoading && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <Loader2 className="h-4 w-4 animate-spin text-primary/40" />
-                        </div>
-                      )}
+                      {isAiLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />}
                     </div>
                     
                     {aiSuggestions.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg border border-dashed border-primary/20">
-                        <div className="w-full text-[10px] font-bold text-primary flex items-center gap-1 mb-1">
-                          <Sparkles className="h-3 w-3 text-accent" />
-                          AI SUGGESTIONS
-                        </div>
+                      <div className="flex flex-wrap gap-2">
                         {aiSuggestions.map((suggestion) => (
-                          <button
+                          <Badge 
                             key={suggestion}
-                            type="button"
+                            variant="secondary"
+                            className="cursor-pointer hover:bg-slate-200 transition-colors"
                             onClick={() => setCustomPurpose(suggestion)}
-                            className="text-[11px] bg-white hover:bg-primary hover:text-white border border-primary/10 px-2 py-1 rounded transition-colors"
                           >
                             {suggestion}
-                          </button>
+                          </Badge>
                         ))}
                       </div>
                     )}
@@ -365,25 +362,14 @@ export default function CheckInPage() {
             <CardFooter className="pt-2">
               <Button 
                 type="submit" 
-                className="w-full h-14 text-xl font-bold bg-primary hover:bg-primary/90 shadow-lg" 
-                disabled={isSubmitting || !college || !finalPurpose || (availablePrograms.length > 0 && !program) || (isGuest && !guestName.trim())}
+                className="w-full h-12 bg-[#003399] hover:bg-[#002a7a] text-white font-bold" 
+                disabled={isSubmitting}
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                    Logging...
-                  </>
-                ) : (
-                  'CONFIRM ENTRY'
-                )}
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'SUBMIT CHECK-IN'}
               </Button>
             </CardFooter>
           </form>
         </Card>
-
-        <p className="mt-8 text-center text-sm text-primary/60 font-medium">
-          By confirming, you agree to follow the NEU Library silent policy.
-        </p>
       </div>
     </div>
   );
