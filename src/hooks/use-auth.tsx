@@ -62,6 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   
   const isTerminalSession = useRef(false);
+  const isSearchingId = useRef(false);
   const profileFetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -70,16 +71,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // If we are in an active terminal session, we trust the profile manually set by loginWithId
+          setUser(firebaseUser);
+
+          // If we are currently searching for an ID, don't update the profile yet
+          if (isSearchingId.current) {
+            return;
+          }
+
+          // If we are in an active terminal session, we trust the profile manually set by loginWithId or continueAsGuest
           if (isTerminalSession.current && profile) {
-            setUser(firebaseUser);
             setLoading(false);
             return;
           }
 
-          // Optimization: Skip refetching if user hasn't changed and not in terminal mode
+          // Optimization: Skip refetching if user hasn't changed
           if (profileFetchedRef.current === firebaseUser.uid && profile && !isTerminalSession.current) {
-            setUser(firebaseUser);
             setLoading(false);
             return;
           }
@@ -104,16 +110,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return;
           }
 
-          setUser(firebaseUser);
-
           // If it's a guest account that isn't handled by the terminal session logic yet
-          if (firebaseUser.isAnonymous && !isTerminalSession.current) {
+          if (firebaseUser.isAnonymous && !isTerminalSession.current && !pendingStudentId) {
              const guestProfile = {
               id: firebaseUser.uid,
               displayName: 'Guest Student',
               role: 'student',
               isGuest: true,
-              studentId: pendingStudentId
+              studentId: null
             };
             setProfile(guestProfile);
             setLoading(false);
@@ -186,7 +190,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast, auth, db]); // Removed profile from dependency to prevent re-subscription loops
+  }, [pendingStudentId, toast, auth, db]);
 
   const login = async () => {
     isTerminalSession.current = false;
@@ -226,7 +230,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loginWithId = async (studentId: string) => {
     setLoading(true);
+    isSearchingId.current = true;
     try {
+      // Sign in anonymously to allow searching the database if not already signed in
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
@@ -237,6 +243,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (querySnapshot.empty) {
         setPendingStudentId(studentId);
         isTerminalSession.current = false;
+        isSearchingId.current = false;
         toast({ 
           title: 'Student ID Not Found', 
           description: 'This ID is not yet registered. You can link a Google account or continue as guest.' 
@@ -255,12 +262,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('This Student ID is currently restricted.');
       }
 
-      // CRITICAL: Set these before redirecting to ensure consistency
+      // Found a matching user! Establish terminal session
       isTerminalSession.current = true;
+      isSearchingId.current = false;
       setPendingStudentId(null);
       setProfile(foundUser);
       router.push('/dashboard/check-in');
     } catch (error: any) {
+      isSearchingId.current = false;
       console.error("Terminal Login Error:", error);
       toast({ variant: 'destructive', title: 'Check-in Failed', description: error.message || 'Permission denied.' });
       setLoading(false);
@@ -273,7 +282,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const guestProfile = {
       id: `guest-${Date.now()}`,
       displayName: 'Guest Student',
-      studentId: pendingStudentId,
+      studentId: pendingStudentId, // typed ID from terminal
       role: 'student',
       isGuest: true
     };
@@ -286,6 +295,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const cancelLinking = () => {
     setPendingStudentId(null);
     isTerminalSession.current = false;
+    isSearchingId.current = false;
     setLoading(false);
   };
 
