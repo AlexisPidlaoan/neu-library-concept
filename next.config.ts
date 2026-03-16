@@ -9,31 +9,26 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Fix for cross-origin warning in the cloud environment
+  experimental: {
+    allowedDevOrigins: [
+      "9000-firebase-studio-1773460384801.cluster-edb2jv34dnhjisxuq5m7l37ccy.cloudworkstations.dev",
+      "localhost:9002"
+    ],
+  },
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'www.gstatic.com',
-        port: '',
-        pathname: '/**',
       },
     ],
   },
