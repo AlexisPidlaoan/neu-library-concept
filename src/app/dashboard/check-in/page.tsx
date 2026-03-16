@@ -107,8 +107,9 @@ export default function CheckInPage() {
   const isCustomPurpose = purposeSelection === "Other / Custom Purpose...";
   const finalPurpose = isCustomPurpose ? customPurpose : purposeSelection;
 
-  const isGuest = profile?.isGuest;
-  const displayName = isGuest ? (guestName || profile?.displayName || 'Guest Student') : (profile?.displayName || 'Student');
+  const isGuest = profile?.isGuest === true;
+  const headerName = isGuest ? 'Guest Student' : (profile?.displayName || 'Student');
+  const loggedVisitName = isGuest ? (guestName || 'Guest Student') : (profile?.displayName || 'Student');
 
   useEffect(() => {
     setProgram('');
@@ -149,7 +150,7 @@ export default function CheckInPage() {
     
     const visitData = {
       userId: profile.id,
-      userName: displayName,
+      userName: loggedVisitName,
       userEmail: profile.email || 'guest@terminal',
       college,
       program,
@@ -213,7 +214,7 @@ export default function CheckInPage() {
           </Avatar>
           <div className="text-center md:text-left">
             <h2 className="text-3xl font-bold mb-1">
-              {isGuest ? 'Guest Student' : (profile?.displayName || 'Student')}
+              {headerName}
             </h2>
             <p className="text-white/80 text-lg mb-2">
               ID: <span className="font-mono font-bold">{profile?.studentId || 'No ID'}</span>
