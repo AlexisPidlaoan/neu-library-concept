@@ -10,7 +10,7 @@ signOut,
   User as FirebaseUser, 
 GoogleAuthProvider,
   signInAnonymously,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
   signInAnonymously
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, serverTimestamp } from 'firebase/firestore';
