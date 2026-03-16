@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useAuth } from '@/hooks/use-auth';
+import { useAuthContext } from '@/hooks/use-auth';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { LayoutDashboard, LogOut, GraduationCap, Users, BookMarked, LogIn } from 'lucide-react';
 import Link from 'next/link';
@@ -12,14 +12,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, logout } = useAuth();
+  const { user, profile, loading, logout } = useAuthContext();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/');
+        router.push('/admin/login');
       } else if (profile?.role !== 'admin') {
         router.push('/dashboard/check-in');
       }
@@ -40,7 +40,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'User Management', icon: Users, href: '/admin/users', color: 'text-[#ED1C24]' }, // Red
   ];
 
-  // Only show Student View button if the admin is also a registered student
   const isAlsoStudent = !!profile?.studentId;
 
   return (
