@@ -19,7 +19,8 @@ service cloud.firestore {
         request.auth.uid == 'm9USWS5C0seJ7oUIV3t65yxVjrv1' ||
         (request.auth.token.email != null && request.auth.token.email.lower() == 'alexis.pidlaoan@neu.edu.ph') ||
         (request.auth.token.email != null && request.auth.token.email.lower() == 'pampa4858@gmail.com') ||
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'admin@neu.edu.ph')
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'admin@neu.edu.ph') ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'jcesperanza@neu.edu.ph')
       );
     }
 
@@ -66,7 +67,7 @@ service cloud.firestore {
        allow read: if isAdmin() || (
         isSignedIn() && (
           resource.data.userId == request.auth.uid || 
-          (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email)
+          (request.auth.token.email != null && request.auth.token.email == resource.data.userEmail)
         )
       );
     }
