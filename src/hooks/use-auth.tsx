@@ -70,7 +70,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // Optimization: Skip refetching if user hasn't changed
+          // If we are in a terminal session and already have a profile, don't refetch
+          if (isTerminalSession.current && profile) {
+            setUser(firebaseUser);
+            setLoading(false);
+            return;
+          }
+
+          // Optimization: Skip refetching if user hasn't changed and not in terminal mode
           if (profileFetchedRef.current === firebaseUser.uid && profile && !isTerminalSession.current) {
             setUser(firebaseUser);
             setLoading(false);
@@ -98,12 +105,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           setUser(firebaseUser);
-
-          // If we are in a terminal session and already have a profile, don't refetch
-          if (isTerminalSession.current && profile) {
-            setLoading(false);
-            return;
-          }
 
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const adminDocRef = doc(db, 'admins', firebaseUser.uid);
@@ -159,7 +160,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         } else {
           setUser(null);
-          // Only clear profile if it wasn't a transient terminal session
           if (!isTerminalSession.current) {
             setProfile(null);
             profileFetchedRef.current = null;
@@ -201,8 +201,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       let msg = error.message;
       if (error.code === 'auth/invalid-credential') {
         msg = "Invalid credentials. Please verify the email and password in the Firebase Console.";
-      } else if (error.code === 'auth/user-not-found') {
-        msg = "This administrator account does not exist.";
       }
       toast({ 
         variant: 'destructive', 
@@ -234,7 +232,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      const foundUser = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+      const foundUser = { 
+        id: querySnapshot.docs[0].id, 
+        ...querySnapshot.docs[0].data(),
+        isGuest: false // Explicitly set as NOT a guest because found in DB
+      };
       
       if (foundUser.isBlocked) {
         throw new Error('This Student ID is currently restricted.');
@@ -254,13 +256,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const continueAsGuest = () => {
     setLoading(true);
     isTerminalSession.current = true;
-    setProfile({
+    const guestProfile = {
       id: `guest-${Date.now()}`,
       displayName: 'Guest Student',
       studentId: pendingStudentId,
       role: 'student',
       isGuest: true
-    });
+    };
+    setProfile(guestProfile);
     setPendingStudentId(null);
     router.push('/dashboard/check-in');
     setLoading(false);
