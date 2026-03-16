@@ -1,11 +1,10 @@
-
 "use client"
 
 import { useState, useMemo } from 'react'
 import { useCollection, useMemoFirebase } from '@/firebase'
 import { collection, query, orderBy } from 'firebase/firestore'
 import { useFirestore } from '@/firebase'
-import { format, isWithinInterval, startOfToday, startOfWeek, subDays, startOfMonth } from 'date-fns'
+import { format, isWithinInterval, startOfToday, startOfWeek, startOfMonth, subDays, endOfDay, startOfDay } from 'date-fns'
 import { 
   BarChart, 
   Bar, 
@@ -25,7 +24,10 @@ import {
   Briefcase, 
   GraduationCap,
   Activity,
-  FilterX
+  FilterX,
+  Clock,
+  Loader2,
+  School
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -54,7 +56,7 @@ export default function AdminDashboard() {
   
   const { data: visits = [], isLoading } = useCollection(visitsQuery)
 
-  // Fetch unique colleges from visits or a predefined list
+  // Fetch unique colleges
   const uniqueColleges = useMemo(() => {
     const set = new Set(visits.map(v => v.college).filter(Boolean))
     return Array.from(set).sort()
@@ -76,13 +78,15 @@ export default function AdminDashboard() {
       // Date Filter
       let inDateRange = true
       if (timePreset === 'today') {
-        inDateRange = isWithinInterval(visitDate, { start: startOfToday(), end: new Date() })
+        inDateRange = isWithinInterval(visitDate, { start: startOfToday(), end: endOfDay(new Date()) })
       } else if (timePreset === 'week') {
-        inDateRange = isWithinInterval(visitDate, { start: startOfWeek(new Date()), end: new Date() })
+        inDateRange = isWithinInterval(visitDate, { start: startOfWeek(new Date()), end: endOfDay(new Date()) })
       } else if (timePreset === 'month') {
-        inDateRange = isWithinInterval(visitDate, { start: startOfMonth(new Date()), end: new Date() })
-      } else if (timePreset === 'custom' && dateRange?.from && dateRange?.to) {
-        inDateRange = isWithinInterval(visitDate, { start: dateRange.from, end: dateRange.to })
+        inDateRange = isWithinInterval(visitDate, { start: startOfMonth(new Date()), end: endOfDay(new Date()) })
+      } else if (timePreset === 'custom' && dateRange?.from) {
+        const start = startOfDay(dateRange.from)
+        const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
+        inDateRange = isWithinInterval(visitDate, { start, end })
       }
 
       // College Filter
@@ -102,11 +106,9 @@ export default function AdminDashboard() {
   const stats = useMemo(() => {
     const total = filteredData.length
     const students = filteredData.filter(v => v.userType === 'student').length
-    const teachers = filteredData.filter(v => v.userType === 'teacher').length
-    const staff = filteredData.filter(v => v.userType === 'staff').length
-    const employees = teachers + staff
+    const employees = filteredData.filter(v => v.userType === 'teacher' || v.userType === 'staff').length
     
-    return { total, students, teachers, staff, employees }
+    return { total, students, employees }
   }, [filteredData])
 
   // Chart Data: Visits by College
@@ -160,29 +162,29 @@ export default function AdminDashboard() {
 
       {/* Advanced Filters */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-5 rounded-xl shadow-sm border">
-        <div className="space-y-2">
+        <div className="space-y-2 lg:col-span-1">
           <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
             <CalendarIcon className="h-3 w-3" /> Timeframe
           </label>
-          <Select value={timePreset} onValueChange={(v: any) => setTimePreset(v)}>
-            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {timePreset === 'custom' && (
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
-              Select Range
-            </label>
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <div className="flex flex-col gap-2">
+            <Select value={timePreset} onValueChange={(v: any) => setTimePreset(v)}>
+              <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+            {timePreset === 'custom' && (
+              <DateRangePicker 
+                value={dateRange} 
+                onChange={setDateRange} 
+                className="w-full"
+              />
+            )}
           </div>
-        )}
+        </div>
 
         <div className="space-y-2">
           <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
@@ -199,15 +201,14 @@ export default function AdminDashboard() {
 
         <div className="space-y-2">
           <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
-            <Users className="h-3 w-3" /> User Type
+            <Users className="h-3 w-3" /> User Category
           </label>
           <Select value={userTypeFilter} onValueChange={(v: any) => setUserTypeFilter(v)}>
             <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="student">Students</SelectItem>
-              <SelectItem value="teacher">Teachers</SelectItem>
-              <SelectItem value="staff">Staff</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="student">Students Only</SelectItem>
+              <SelectItem value="teacher">Employees (Teacher/Staff)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -227,7 +228,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="border-none shadow-md bg-gradient-to-br from-[#003399] to-[#002a7a] text-white">
           <CardHeader className="pb-2">
             <CardDescription className="text-white/70">Total Visitors</CardDescription>
@@ -238,43 +239,28 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-md bg-white">
+        <Card className="border-none shadow-md bg-white border-l-4 border-l-[#00A859]">
           <CardHeader className="pb-2">
-            <CardDescription className="text-slate-500">Total Students</CardDescription>
-            <CardTitle className="text-4xl font-bold text-[#003399]">{stats.students}</CardTitle>
+            <CardDescription className="text-slate-500">Student Count</CardDescription>
+            <CardTitle className="text-4xl font-bold text-[#00A859]">{stats.students}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-[#003399]" />
+              <GraduationCap className="h-4 w-4 text-[#00A859]" />
               <div className="text-xs font-medium text-slate-400">Enrolled Students</div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-md bg-white">
+        <Card className="border-none shadow-md bg-white border-l-4 border-l-[#FFD54F]">
           <CardHeader className="pb-2">
-            <CardDescription className="text-slate-500">Total Employees</CardDescription>
-            <CardTitle className="text-4xl font-bold text-[#00A859]">{stats.employees}</CardTitle>
+            <CardDescription className="text-slate-500">Employee Count</CardDescription>
+            <CardTitle className="text-4xl font-bold text-[#FFD54F]">{stats.employees}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-[#00A859]" />
-              <div className="text-xs font-medium text-slate-400">Teachers & Staff</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-md bg-white">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-slate-500">Average Daily</CardDescription>
-            <CardTitle className="text-4xl font-bold text-[#FFD54F]">
-              {Math.round(stats.total / (timePreset === 'week' ? 7 : timePreset === 'month' ? 30 : 1))}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[#FFD54F]" />
-              <div className="text-xs font-medium text-slate-400">Visits per day</div>
+              <Briefcase className="h-4 w-4 text-[#FFD54F]" />
+              <div className="text-xs font-medium text-slate-400">Total Teachers & Staff</div>
             </div>
           </CardContent>
         </Card>
@@ -284,7 +270,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-none shadow-md bg-white">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-800">Engagement by College</CardTitle>
+            <CardTitle className="text-lg font-bold text-slate-800">Traffic by College</CardTitle>
           </CardHeader>
           <CardContent className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -310,7 +296,7 @@ export default function AdminDashboard() {
 
         <Card className="border-none shadow-md bg-white">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-800">Purpose Distribution</CardTitle>
+            <CardTitle className="text-lg font-bold text-slate-800">Purpose of Visit</CardTitle>
           </CardHeader>
           <CardContent className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
