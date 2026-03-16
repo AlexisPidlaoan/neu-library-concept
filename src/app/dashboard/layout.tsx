@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuthContext } from '@/hooks/use-auth';
@@ -34,8 +33,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isGuest = profile?.isGuest === true;
 
   const menuItems = [
-    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-[#00A859]' }, // Green
-    { label: 'My History', icon: History, href: '/dashboard/history', color: 'text-[#FFD54F]' }, // Yellow
+    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-[#00A859]' }, 
+    { label: 'My History', icon: History, href: '/dashboard/history', color: 'text-[#FFD54F]' }, 
   ];
 
   return (
@@ -96,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {profile?.displayName || user.displayName}
                   </span>
                   <span className="text-xs text-muted-foreground truncate w-full">
-                    {isGuest ? `ID: ${profile?.studentId}` : (user.email || profile?.email)}
+                    {isGuest ? `ID: ${profile?.studentId || 'Guest'}` : (user.email || profile?.email)}
                   </span>
                 </div>
               </SidebarMenuButton>
