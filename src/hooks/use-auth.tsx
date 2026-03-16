@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // 1. Domain Enforcement
+        // Domain Enforcement
         const isInstitutional = firebaseUser.email?.endsWith('@neu.edu.ph');
         const isWhitelisted = [
           'pampa4858@gmail.com', 
@@ -101,7 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          // Link pending Student ID if exists
           if (pendingStudentId && !data.studentId && !firebaseUser.isAnonymous) {
             await updateDoc(userRef, { studentId: pendingStudentId });
             data.studentId = pendingStudentId;
@@ -111,18 +110,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile({ ...data, id: firebaseUser.uid });
           setUser(firebaseUser);
           
-          // Redirect to check-in if logged in via terminal flow
-          if (window.location.pathname === '/') {
-            router.push('/dashboard/check-in');
+          if (window.location.pathname === '/' || window.location.pathname === '/admin/login') {
+            router.push(data.role === 'admin' ? '/admin/dashboard' : '/dashboard/check-in');
           }
         } else {
-          // Profile Creation for New User
           const newProfile: UserProfile = {
             id: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
             photoURL: firebaseUser.photoURL,
-            role: 'student',
+            role: isWhitelisted ? 'admin' : 'student',
             studentId: pendingStudentId || undefined,
             isBlocked: false,
             isGuest: firebaseUser.isAnonymous
@@ -158,9 +155,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error("Login Error:", error);
-      if (error.code === 'auth/popup-closed-by-user') {
-        toast({ title: 'Login Cancelled', description: 'The sign-in popup was closed.' });
-      } else {
+      if (error.code === 'auth/unauthorized-domain') {
+        toast({ 
+          variant: 'destructive', 
+          title: 'Unauthorized Domain', 
+          description: 'Please add this domain to Firebase Console Authentication settings.' 
+        });
+      } else if (error.code !== 'auth/popup-closed-by-user') {
         toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
       }
     } finally {
