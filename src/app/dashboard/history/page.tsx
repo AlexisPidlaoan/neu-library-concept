@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useMemo } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuthContext } from '@/hooks/use-auth';
 import { initializeFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 const { firestore: db } = initializeFirebase();
 
 export default function HistoryPage() {
-  const { profile } = useAuth();
+  const { profile } = useAuthContext();
   const [searchTerm, setSearchTerm] = useState('');
 
   // We query for the user's visits. 
