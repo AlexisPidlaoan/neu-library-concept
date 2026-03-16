@@ -29,6 +29,11 @@
           "enum": ["student", "admin"],
           "description": "User role within the system."
         },
+        "userType": {
+          "type": "string",
+          "enum": ["student", "teacher", "staff"],
+          "description": "Classification of the user."
+        },
         "isBlocked": {
           "type": "boolean",
           "description": "Indicates if the user is blocked from entry."
@@ -77,12 +82,20 @@
         "purpose": {
           "type": "string"
         },
+        "userType": {
+          "type": "string",
+          "enum": ["student", "teacher", "staff"]
+        },
+        "isEmployee": {
+          "type": "boolean",
+          "description": "True if teacher or staff."
+        },
         "timestamp": {
           "type": "object",
           "description": "Firestore server timestamp."
         }
       },
-      "required": ["userId", "userName", "college", "purpose", "timestamp"]
+      "required": ["userId", "userName", "college", "purpose", "userType", "isEmployee", "timestamp"]
     }
   },
   "auth": {
@@ -107,11 +120,8 @@
       {
         "path": "/admins/{userId}",
         "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Role-marker collection for admin privileges."
+          "entityName": "Admin",
+          "description": "Explicit list of allowed administrator UIDs or emails."
         }
       },
       {
