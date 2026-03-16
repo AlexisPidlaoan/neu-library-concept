@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuthContext } from '@/hooks/use-auth';
 import { initializeFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, writeBatch } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -26,7 +27,7 @@ const DEFAULT_DEPARTMENTS = [
 ];
 
 export default function CollegesManagementPage() {
-  const { profile } = useAuth();
+  const { profile } = useAuthContext();
   const { toast } = useToast();
   const [newCollege, setNewCollege] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
