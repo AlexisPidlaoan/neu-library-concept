@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // If we are in a terminal session and already have a profile, don't refetch
+          // If we are in an active terminal session, we trust the profile manually set by loginWithId
           if (isTerminalSession.current && profile) {
             setUser(firebaseUser);
             setLoading(false);
@@ -106,6 +106,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           setUser(firebaseUser);
 
+          // If it's a guest account that isn't handled by the terminal session logic yet
+          if (firebaseUser.isAnonymous && !isTerminalSession.current) {
+             const guestProfile = {
+              id: firebaseUser.uid,
+              displayName: 'Guest Student',
+              role: 'student',
+              isGuest: true,
+              studentId: pendingStudentId
+            };
+            setProfile(guestProfile);
+            setLoading(false);
+            return;
+          }
+
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const adminDocRef = doc(db, 'admins', firebaseUser.uid);
           
@@ -133,18 +147,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             setProfile(userData);
             profileFetchedRef.current = firebaseUser.uid;
-          } else {
-            // New User Profile Creation
-            const isGuest = firebaseUser.isAnonymous;
+          } else if (!firebaseUser.isAnonymous) {
+            // New User Profile Creation (Non-Guest)
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
-              displayName: firebaseUser.displayName || email?.split('@')[0] || (isGuest ? 'Guest Student' : 'User'),
+              displayName: firebaseUser.displayName || email?.split('@')[0] || 'User',
               photoURL: firebaseUser.photoURL || null,
               role: isAdminEmail ? 'admin' : 'student',
               studentId: pendingStudentId || null,
               isBlocked: false,
-              isGuest: isGuest,
+              isGuest: false,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
@@ -173,7 +186,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast, auth, db, profile]);
+  }, [pendingStudentId, toast, auth, db]); // Removed profile from dependency to prevent re-subscription loops
 
   const login = async () => {
     isTerminalSession.current = false;
@@ -235,13 +248,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const foundUser = { 
         id: querySnapshot.docs[0].id, 
         ...querySnapshot.docs[0].data(),
-        isGuest: false // Explicitly set as NOT a guest because found in DB
+        isGuest: false 
       };
       
       if (foundUser.isBlocked) {
         throw new Error('This Student ID is currently restricted.');
       }
 
+      // CRITICAL: Set these before redirecting to ensure consistency
       isTerminalSession.current = true;
       setPendingStudentId(null);
       setProfile(foundUser);
