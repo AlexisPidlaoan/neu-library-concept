@@ -66,7 +66,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (firebaseUser) {
         // Institutional domain check
         const isInstitutional = firebaseUser.email?.endsWith('@neu.edu.ph');
-        const isWhitelisted = ['pampa4858@gmail.com', 'admin@neu.edu.ph', 'alexis.pidlaoan@neu.edu.ph', 'jcesperanza@neu.edu.ph'].includes(firebaseUser.email || '');
+        const isWhitelisted = [
+          'pampa4858@gmail.com', 
+          'admin@neu.edu.ph', 
+          'alexis.pidlaoan@neu.edu.ph', 
+          'jcesperanza@neu.edu.ph'
+        ].includes(firebaseUser.email?.toLowerCase() || '');
         
         if (!firebaseUser.isAnonymous && !isInstitutional && !isWhitelisted) {
           await signOut(auth);
@@ -96,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
+          // If logging in after entering a new student ID
           if (pendingStudentId && !data.studentId && !firebaseUser.isAnonymous) {
             await updateDoc(userRef, { studentId: pendingStudentId });
             data.studentId = pendingStudentId;
@@ -105,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile({ ...data, id: firebaseUser.uid });
           setUser(firebaseUser);
         } else {
+          // New User Creation
           const newProfile: UserProfile = {
             id: firebaseUser.uid,
             email: firebaseUser.email,
@@ -171,8 +178,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
+        // Artificial user object for terminal flow
         setProfile({ ...userData, id: querySnapshot.docs[0].id });
-        setUser({ uid: querySnapshot.docs[0].id, displayName: userData.displayName } as any);
+        setUser({ uid: querySnapshot.docs[0].id, displayName: userData.displayName, email: userData.email } as any);
         router.push('/dashboard/check-in');
       } else {
         setPendingStudentId(id);
