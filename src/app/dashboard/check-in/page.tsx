@@ -11,11 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X, Type } from 'lucide-react';
+import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X, Type, Sparkles } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { suggestPurpose } from '@/ai/flows/smart-purpose-suggester';
 
 const { firestore: db } = initializeFirebase();
 
@@ -76,13 +77,13 @@ const PROGRAMS_MAP: Record<string, string[]> = {
 };
 
 const COMMON_PURPOSES = [
-  "Study for Exams",
-  "Research / Thesis Work",
-  "Book Borrowing / Return",
-  "Group Project Meeting",
-  "Use Library Computers",
-  "Quiet Reading",
-  "Consult with Librarian",
+  "Reading Books",
+  "Thesis / Research",
+  "Use of Computer",
+  "Doing Assignments",
+  "General Visit / Viewing",
+  "Borrowing / Returning Books",
+  "Group Study",
   "Other / Custom Purpose..."
 ];
 
@@ -96,6 +97,8 @@ export default function CheckInPage() {
   const [program, setProgram] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const collegesQuery = useMemoFirebase(() => query(collection(db, 'colleges'), orderBy('name', 'asc')), []);
   const { data: dbColleges, isLoading: loadingColleges } = useCollection(collegesQuery);
@@ -105,11 +108,30 @@ export default function CheckInPage() {
   const finalPurpose = isCustomPurpose ? customPurpose : purposeSelection;
 
   const isGuest = profile?.isGuest;
-  const displayName = isGuest ? guestName : (profile?.displayName || 'Visitor');
+  const displayName = isGuest ? (guestName || profile?.displayName || 'Guest Student') : (profile?.displayName || 'Student');
 
   useEffect(() => {
     setProgram('');
   }, [college]);
+
+  useEffect(() => {
+    if (isCustomPurpose && customPurpose.length > 2) {
+      const timer = setTimeout(async () => {
+        setIsAiLoading(true);
+        try {
+          const result = await suggestPurpose({ partialPurpose: customPurpose });
+          setAiSuggestions(result.suggestions);
+        } catch (e) {
+          console.error("AI Suggester Error:", e);
+        } finally {
+          setIsAiLoading(false);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setAiSuggestions([]);
+    }
+  }, [customPurpose, isCustomPurpose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +213,7 @@ export default function CheckInPage() {
           </Avatar>
           <div className="text-center md:text-left">
             <h2 className="text-3xl font-bold mb-1">
-              {isGuest ? 'Guest Entry' : (profile?.displayName || 'Student')}
+              {isGuest ? 'Guest Student' : (profile?.displayName || 'Student')}
             </h2>
             <p className="text-white/80 text-lg mb-2">
               ID: <span className="font-mono font-bold">{profile?.studentId || 'No ID'}</span>
@@ -301,14 +323,40 @@ export default function CheckInPage() {
                       <Keyboard className="h-3 w-3 text-[#ED1C24]" />
                       Custom Purpose
                     </Label>
-                    <Input
-                      id="custom-purpose"
-                      placeholder="e.g., Thesis Research..."
-                      value={customPurpose}
-                      onChange={(e) => setCustomPurpose(e.target.value)}
-                      autoComplete="off"
-                      className="h-12 border-2 border-primary/10 focus:border-primary bg-white"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="custom-purpose"
+                        placeholder="Start typing your reason..."
+                        value={customPurpose}
+                        onChange={(e) => setCustomPurpose(e.target.value)}
+                        autoComplete="off"
+                        className="h-12 border-2 border-primary/10 focus:border-primary bg-white pr-10"
+                      />
+                      {isAiLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary/40" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {aiSuggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg border border-dashed border-primary/20">
+                        <div className="w-full text-[10px] font-bold text-primary flex items-center gap-1 mb-1">
+                          <Sparkles className="h-3 w-3 text-accent" />
+                          AI SUGGESTIONS
+                        </div>
+                        {aiSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => setCustomPurpose(suggestion)}
+                            className="text-[11px] bg-white hover:bg-primary hover:text-white border border-primary/10 px-2 py-1 rounded transition-colors"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
