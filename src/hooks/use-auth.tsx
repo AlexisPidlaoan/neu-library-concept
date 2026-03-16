@@ -21,6 +21,7 @@ interface AuthContextType {
   user: FirebaseUser | null;
   profile: any | null;
   loading: boolean;
+  isAdmin: boolean;
   pendingStudentId: string | null;
   login: (asAdmin?: boolean) => Promise<void>;
   loginWithId: (studentId: string) => Promise<void>;
@@ -35,6 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [pendingStudentId, setPendingStudentId] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -46,12 +48,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (firebaseUser) {
           setUser(firebaseUser);
 
-          // Check for admin status
+          // Check if user is in admins collection
           const adminDoc = await getDoc(doc(db, 'admins', firebaseUser.uid));
-          const isAdmin = adminDoc.exists() || (firebaseUser.email && (
-            firebaseUser.email === 'jcesperanza@neu.edu.ph' || 
-            firebaseUser.email === 'admin@neu.edu.ph'
-          ));
+          const isUserAdmin = adminDoc.exists();
+          setIsAdmin(isUserAdmin);
 
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
@@ -63,13 +63,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               toast({ variant: 'destructive', title: 'Account Blocked', description: 'Contact the library administrator.' });
               setUser(null);
               setProfile(null);
+              setIsAdmin(false);
               setLoading(false);
               return;
             }
             setProfile({ 
               ...userData, 
               id: firebaseUser.uid, 
-              role: isAdmin ? 'admin' : userData.role || 'student' 
+              role: isUserAdmin ? 'admin' : (userData.role || 'student') 
             });
           } else if (!firebaseUser.isAnonymous) {
             // New user from Google Login
@@ -79,7 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               email: email,
               displayName: firebaseUser.displayName || email.split('@')[0] || 'User',
               photoURL: firebaseUser.photoURL || null,
-              role: isAdmin ? 'admin' : 'student',
+              role: isUserAdmin ? 'admin' : 'student',
               userType: 'student',
               studentId: pendingStudentId || null,
               isBlocked: false,
@@ -104,6 +105,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setUser(null);
           setProfile(null);
+          setIsAdmin(false);
         }
       } catch (e) {
         console.error("Auth Hook Error:", e);
@@ -113,7 +115,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [pendingStudentId]);
 
   const login = async (asAdmin = false) => {
     setLoading(true);
@@ -121,22 +123,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const result = await signInWithPopup(auth, googleProvider);
       
       const adminDoc = await getDoc(doc(db, 'admins', result.user.uid));
-      const isAdminUser = adminDoc.exists() || (result.user.email && (
-        result.user.email === 'jcesperanza@neu.edu.ph' || 
-        result.user.email === 'admin@neu.edu.ph'
-      ));
+      const isUserAdmin = adminDoc.exists();
       
-      if (asAdmin && !isAdminUser) {
+      if (asAdmin && !isUserAdmin) {
         await signOut(auth);
         toast({
           variant: 'destructive',
           title: 'Access Denied',
-          description: 'This account is not on the administrator whitelist.'
+          description: 'This account is not authorized as an administrator.'
         });
         return;
       }
 
-      if (asAdmin || isAdminUser) {
+      if (isUserAdmin) {
         router.push('/admin/dashboard');
       } else {
         router.push('/dashboard/check-in');
@@ -184,7 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, pendingStudentId, login, loginWithId, continueAsGuest, cancelLinking, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, pendingStudentId, login, loginWithId, continueAsGuest, cancelLinking, logout }}>
       {children}
     </AuthContext.Provider>
   );
