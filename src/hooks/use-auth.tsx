@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Institutional domain check
+        // 1. Domain Enforcement
         const isInstitutional = firebaseUser.email?.endsWith('@neu.edu.ph');
         const isWhitelisted = [
           'pampa4858@gmail.com', 
@@ -77,8 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await signOut(auth);
           toast({
             variant: 'destructive',
-            title: 'Access Denied',
-            description: 'Only @neu.edu.ph institutional emails are allowed.'
+            title: 'Unauthorized Email',
+            description: 'Please use your @neu.edu.ph institutional account.'
           });
           setLoading(false);
           return;
@@ -94,14 +94,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await signOut(auth);
             toast({
               variant: 'destructive',
-              title: 'Account Blocked',
-              description: 'Your account has been restricted by library administration.'
+              title: 'Access Restricted',
+              description: 'This account has been blocked by the administrator.'
             });
             setLoading(false);
             return;
           }
 
-          // If logging in after entering a new student ID
+          // Link pending Student ID if exists
           if (pendingStudentId && !data.studentId && !firebaseUser.isAnonymous) {
             await updateDoc(userRef, { studentId: pendingStudentId });
             data.studentId = pendingStudentId;
@@ -110,8 +110,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           setProfile({ ...data, id: firebaseUser.uid });
           setUser(firebaseUser);
+          
+          // Redirect to check-in if logged in via terminal flow
+          if (window.location.pathname === '/') {
+            router.push('/dashboard/check-in');
+          }
         } else {
-          // New User Creation
+          // Profile Creation for New User
           const newProfile: UserProfile = {
             id: firebaseUser.uid,
             email: firebaseUser.email,
@@ -132,6 +137,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(newProfile);
           setUser(firebaseUser);
           setPendingStudentId(null);
+          
+          if (window.location.pathname === '/') {
+            router.push('/dashboard/check-in');
+          }
         }
       } else {
         setUser(null);
@@ -141,23 +150,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast]);
+  }, [pendingStudentId, toast, router]);
 
   const login = async (isAdmin: boolean) => {
+    setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
+      console.error("Login Error:", error);
       if (error.code === 'auth/popup-closed-by-user') {
-        toast({
-          title: 'Login Cancelled',
-          description: 'The sign-in window was closed before completion.',
-        });
-      } else if (error.code === 'auth/popup-blocked') {
-        toast({
-          title: 'Popup Blocked',
-          description: 'Please enable popups for this site to sign in.',
-        });
+        toast({ title: 'Login Cancelled', description: 'The sign-in popup was closed.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -170,15 +177,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!querySnapshot.empty) {
         const userData = querySnapshot.docs[0].data() as UserProfile;
         if (userData.isBlocked) {
-          toast({
-            variant: 'destructive',
-            title: 'Access Denied',
-            description: 'This ID has been restricted by administration.'
-          });
+          toast({ variant: 'destructive', title: 'Access Denied', description: 'This ID is restricted.' });
           setLoading(false);
           return;
         }
-        // Artificial user object for terminal flow
         setProfile({ ...userData, id: querySnapshot.docs[0].id });
         setUser({ uid: querySnapshot.docs[0].id, displayName: userData.displayName, email: userData.email } as any);
         router.push('/dashboard/check-in');
@@ -186,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPendingStudentId(id);
       }
     } catch (error) {
-      console.error("ID Login Error:", error);
+      console.error("ID Search Error:", error);
     } finally {
       setLoading(false);
     }
@@ -196,22 +198,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       await signInAnonymously(auth);
-      router.push('/dashboard/check-in');
     } catch (error) {
-      console.error("Guest Access Error:", error);
+      console.error("Guest Auth Error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const cancelLinking = () => {
-    setPendingStudentId(null);
-  };
+  const cancelLinking = () => setPendingStudentId(null);
 
   const logout = async () => {
     await signOut(auth);
-    setProfile(null);
-    setUser(null);
     router.push('/');
   };
 
@@ -228,8 +225,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export const useAuthContext = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuthContext must be used within AuthProvider');
   return context;
 };
