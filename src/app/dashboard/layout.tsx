@@ -31,6 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const isAdmin = profile?.role === 'admin';
+  const isGuest = profile?.isGuest === true;
 
   const menuItems = [
     { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-[#00A859]' }, // Green
@@ -80,24 +81,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </SidebarMenu>
         </SidebarContent>
-        <SidebarFooter className="p-4">
+        <SidebarFooter className="p-4 border-t">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent">
-                <Avatar className="h-8 w-8 border border-primary/10">
+              <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent w-full justify-start p-2">
+                <Avatar className="h-8 w-8 border border-primary/10 shrink-0">
                   <AvatarImage src={user.photoURL || ''} />
                   <AvatarFallback className="bg-primary text-white uppercase">
-                    {user.displayName?.charAt(0)}
+                    {profile?.displayName?.charAt(0) || user.displayName?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col items-start text-left group-data-[collapsible=icon]:hidden overflow-hidden">
-                  <span className="text-sm font-medium truncate w-full">{user.displayName}</span>
-                  <span className="text-xs text-muted-foreground truncate w-full">{user.email}</span>
+                <div className="flex flex-col items-start text-left group-data-[collapsible=icon]:hidden overflow-hidden ml-3">
+                  <span className="text-sm font-bold truncate w-full text-primary">
+                    {profile?.displayName || user.displayName}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate w-full">
+                    {isGuest ? `ID: ${profile?.studentId}` : (user.email || profile?.email)}
+                  </span>
                 </div>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuContent align="end" side="right" className="w-56">
+              <DropdownMenuLabel>Account Session</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {isAdmin && (
                 <DropdownMenuItem asChild>
@@ -107,7 +112,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={logout} className="text-[#ED1C24] cursor-pointer">
+              <DropdownMenuItem onClick={logout} className="text-[#ED1C24] cursor-pointer font-semibold">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>
