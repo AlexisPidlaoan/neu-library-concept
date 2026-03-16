@@ -1,10 +1,8 @@
 "use client"
 
-import { useState, useMemo } from 'react'
-import { useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy } from 'firebase/firestore'
-import { useFirestore } from '@/firebase'
-import { format, isWithinInterval, startOfToday, startOfWeek, startOfMonth, subDays, endOfDay, startOfDay } from 'date-fns'
+import { useMemo, useState } from 'react'
+import { useCollection, useMemoFirebase, useFirestore } from '@/firebase'
+import { collection, query, orderBy, where } from 'firebase/firestore'
 import { 
   BarChart, 
   Bar, 
@@ -13,311 +11,224 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  Cell,
   PieChart,
   Pie,
+  Cell,
   Legend
 } from 'recharts'
 import { 
   Users, 
-  Calendar as CalendarIcon, 
-  Briefcase, 
-  GraduationCap,
-  Activity,
-  FilterX,
-  Clock,
-  Loader2,
-  School
+  Building2, 
+  Target, 
+  Calendar as CalendarIcon,
+  Search,
+  Users2,
+  TrendingUp,
+  Filter
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { DateRange } from 'react-day-picker'
+import { startOfDay, endOfDay, isWithinInterval, subDays } from 'date-fns'
 
 const CHART_COLORS = ['#003399', '#00A859', '#FFD54F', '#ED1C24', '#9EB2BF', '#8b5cf6', '#ec4899']
 
 export default function AdminDashboard() {
   const db = useFirestore()
   
-  const [timePreset, setTimePreset] = useState<'today' | 'week' | 'month' | 'custom'>('week')
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 7),
-    to: new Date(),
+    to: new Date()
   })
-  const [collegeFilter, setCollegeFilter] = useState<string>('all')
-  const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'student' | 'teacher' | 'staff'>('all')
-  const [purposeFilter, setPurposeFilter] = useState<string>('all')
+  
+  const [filters, setFilters] = useState({
+    college: 'all',
+    userType: 'all',
+    purpose: 'all'
+  })
 
-  // Fetch all visits
   const visitsQuery = useMemoFirebase(() => {
     return query(collection(db, 'visits'), orderBy('timestamp', 'desc'))
   }, [db])
-  
+
   const { data: visits = [], isLoading } = useCollection(visitsQuery)
 
-  // Fetch unique colleges
+  // Safe access to visits with null check
+  const safeVisits = Array.isArray(visits) ? visits : []
+
+  // Extract unique filter values
   const uniqueColleges = useMemo(() => {
-    const set = new Set(visits.map(v => v.college).filter(Boolean))
+    const set = new Set(safeVisits.map(v => v.college).filter(Boolean))
     return Array.from(set).sort()
-  }, [visits])
+  }, [safeVisits])
 
-  // Fetch unique purposes
   const uniquePurposes = useMemo(() => {
-    const set = new Set(visits.map(v => v.purpose).filter(Boolean))
+    const set = new Set(safeVisits.map(v => v.purpose).filter(Boolean))
     return Array.from(set).sort()
-  }, [visits])
+  }, [safeVisits])
 
-  // Filter logic
-  const filteredData = useMemo(() => {
-    if (!visits) return []
-    
-    return visits.filter(visit => {
-      const visitDate = visit.timestamp?.toDate() || new Date()
-      
-      // Date Filter
-      let inDateRange = true
-      if (timePreset === 'today') {
-        inDateRange = isWithinInterval(visitDate, { start: startOfToday(), end: endOfDay(new Date()) })
-      } else if (timePreset === 'week') {
-        inDateRange = isWithinInterval(visitDate, { start: startOfWeek(new Date()), end: endOfDay(new Date()) })
-      } else if (timePreset === 'month') {
-        inDateRange = isWithinInterval(visitDate, { start: startOfMonth(new Date()), end: endOfDay(new Date()) })
-      } else if (timePreset === 'custom' && dateRange?.from) {
-        const start = startOfDay(dateRange.from)
-        const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
-        inDateRange = isWithinInterval(visitDate, { start, end })
-      }
+  // Filtered data for statistics
+  const filteredVisits = useMemo(() => {
+    return safeVisits.filter(visit => {
+      const date = visit.timestamp?.toDate()
+      if (!date) return false
 
-      // College Filter
-      const inCollege = collegeFilter === 'all' || visit.college === collegeFilter
+      const inDateRange = !dateRange?.from || !dateRange?.to || 
+        isWithinInterval(date, { 
+          start: startOfDay(dateRange.from), 
+          end: endOfDay(dateRange.to) 
+        })
 
-      // User Type Filter
-      const inUserType = userTypeFilter === 'all' || visit.userType === userTypeFilter
-
-      // Purpose Filter
-      const inPurpose = purposeFilter === 'all' || visit.purpose === purposeFilter
+      const inCollege = filters.college === 'all' || visit.college === filters.college
+      const inUserType = filters.userType === 'all' || visit.userType === filters.userType
+      const inPurpose = filters.purpose === 'all' || visit.purpose === filters.purpose
 
       return inDateRange && inCollege && inUserType && inPurpose
     })
-  }, [visits, timePreset, dateRange, collegeFilter, userTypeFilter, purposeFilter])
+  }, [safeVisits, dateRange, filters])
 
-  // Stats
+  // Aggregate statistics
   const stats = useMemo(() => {
-    const total = filteredData.length
-    const students = filteredData.filter(v => v.userType === 'student').length
-    const employees = filteredData.filter(v => v.userType === 'teacher' || v.userType === 'staff').length
-    
-    return { total, students, employees }
-  }, [filteredData])
+    const total = filteredVisits.length
+    const byCollege: Record<string, number> = {}
+    const byPurpose: Record<string, number> = {}
+    const byUserType: Record<string, number> = {}
 
-  // Chart Data: Visits by College
-  const collegeChartData = useMemo(() => {
-    const data: Record<string, number> = {}
-    filteredData.forEach(v => {
-      const label = v.college || 'Unspecified'
-      data[label] = (data[label] || 0) + 1
+    filteredVisits.forEach(v => {
+      byCollege[v.college] = (byCollege[v.college] || 0) + 1
+      byPurpose[v.purpose] = (byPurpose[v.purpose] || 0) + 1
+      byUserType[v.userType || 'student'] = (byUserType[v.userType || 'student'] || 0) + 1
     })
-    return Object.entries(data).map(([name, value]) => ({ name, value }))
-  }, [filteredData])
 
-  // Chart Data: Visits by Purpose
-  const purposeChartData = useMemo(() => {
-    const data: Record<string, number> = {}
-    filteredData.forEach(v => {
-      const label = v.purpose || 'Unspecified'
-      data[label] = (data[label] || 0) + 1
-    })
-    return Object.entries(data).map(([name, value]) => ({ name, value }))
-  }, [filteredData])
-
-  const resetFilters = () => {
-    setTimePreset('week')
-    setCollegeFilter('all')
-    setUserTypeFilter('all')
-    setPurposeFilter('all')
-    setDateRange({ from: subDays(new Date(), 7), to: new Date() })
-  }
+    return {
+      total,
+      byCollege: Object.entries(byCollege).map(([name, value]) => ({ name, value })),
+      byPurpose: Object.entries(byPurpose).map(([name, value]) => ({ name, value })),
+      byUserType: Object.entries(byUserType).map(([name, value]) => ({ name, value }))
+    }
+  }, [filteredVisits])
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse">Loading analytics data...</p>
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Library Insights</h1>
-          <p className="text-muted-foreground font-medium">Real-time visitor analytics and trends</p>
+          <h1 className="text-3xl font-bold text-primary">Library Statistics</h1>
+          <p className="text-muted-foreground">Monitor and analyze library usage patterns.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={resetFilters} className="gap-2">
-          <FilterX className="h-4 w-4" /> Reset Filters
-        </Button>
-      </div>
-
-      {/* Advanced Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-5 rounded-xl shadow-sm border">
-        <div className="space-y-2 lg:col-span-1">
-          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
-            <CalendarIcon className="h-3 w-3" /> Timeframe
-          </label>
-          <div className="flex flex-col gap-2">
-            <Select value={timePreset} onValueChange={(v: any) => setTimePreset(v)}>
-              <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="custom">Custom Range</SelectItem>
-              </SelectContent>
-            </Select>
-            {timePreset === 'custom' && (
-              <DateRangePicker 
-                value={dateRange} 
-                onChange={setDateRange} 
-                className="w-full"
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
-            <School className="h-3 w-3" /> College
-          </label>
-          <Select value={collegeFilter} onValueChange={setCollegeFilter}>
-            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Colleges</SelectItem>
-              {uniqueColleges.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
-            <Users className="h-3 w-3" /> User Category
-          </label>
-          <Select value={userTypeFilter} onValueChange={(v: any) => setUserTypeFilter(v)}>
-            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="student">Students Only</SelectItem>
-              <SelectItem value="teacher">Employees (Teacher/Staff)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
-            <Activity className="h-3 w-3" /> Purpose
-          </label>
-          <Select value={purposeFilter} onValueChange={setPurposeFilter}>
-            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Purposes</SelectItem>
-              {uniquePurposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div className="flex gap-4">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="border-none shadow-md bg-gradient-to-br from-[#003399] to-[#002a7a] text-white">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-white">
           <CardHeader className="pb-2">
-            <CardDescription className="text-white/70">Total Visitors</CardDescription>
-            <CardTitle className="text-4xl font-bold">{stats.total}</CardTitle>
+            <CardDescription className="flex items-center gap-2">
+              <Users className="h-4 w-4" /> Total Visitors
+            </CardDescription>
+            <CardTitle className="text-2xl font-bold">{stats.total}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-xs text-white/60">Across selected filters</div>
-          </CardContent>
         </Card>
-
-        <Card className="border-none shadow-md bg-white border-l-4 border-l-[#00A859]">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-slate-500">Student Count</CardDescription>
-            <CardTitle className="text-4xl font-bold text-[#00A859]">{stats.students}</CardTitle>
-          </CardHeader>
-          <CardContent>
+        
+        <Select value={filters.college} onValueChange={v => setFilters({...filters, college: v})}>
+          <SelectTrigger className="bg-white h-full">
             <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-[#00A859]" />
-              <div className="text-xs font-medium text-slate-400">Enrolled Students</div>
+              <Building2 className="h-4 w-4" />
+              <SelectValue placeholder="All Colleges" />
             </div>
-          </CardContent>
-        </Card>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Colleges</SelectItem>
+            {uniqueColleges.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
-        <Card className="border-none shadow-md bg-white border-l-4 border-l-[#FFD54F]">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-slate-500">Employee Count</CardDescription>
-            <CardTitle className="text-4xl font-bold text-[#FFD54F]">{stats.employees}</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Select value={filters.userType} onValueChange={v => setFilters({...filters, userType: v})}>
+          <SelectTrigger className="bg-white h-full">
             <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-[#FFD54F]" />
-              <div className="text-xs font-medium text-slate-400">Total Teachers & Staff</div>
+              <Users2 className="h-4 w-4" />
+              <SelectValue placeholder="All User Types" />
             </div>
-          </CardContent>
-        </Card>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All User Types</SelectItem>
+            <SelectItem value="student">Students</SelectItem>
+            <SelectItem value="teacher">Teachers</SelectItem>
+            <SelectItem value="staff">Staff</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filters.purpose} onValueChange={v => setFilters({...filters, purpose: v})}>
+          <SelectTrigger className="bg-white h-full">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              <SelectValue placeholder="All Purposes" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Purposes</SelectItem>
+            {uniquePurposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Detailed Visuals */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-none shadow-md bg-white">
+        <Card className="bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-800">Traffic by College</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Visits by College
+            </CardTitle>
           </CardHeader>
-          <CardContent className="h-[400px]">
+          <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={collegeChartData} layout="vertical" margin={{ left: 30, right: 30 }}>
+              <BarChart data={stats.byCollege} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                 <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  width={150} 
-                  fontSize={10} 
-                  tick={{ fill: '#64748b' }} 
-                />
-                <Tooltip 
-                  cursor={{ fill: '#f1f5f9' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                />
-                <Bar dataKey="value" fill="#003399" radius={[0, 4, 4, 0]} barSize={20} />
+                <YAxis dataKey="name" type="category" width={120} fontSize={12} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#003399" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-md bg-white">
+        <Card className="bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-800">Purpose of Visit</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Purpose Distribution
+            </CardTitle>
           </CardHeader>
-          <CardContent className="h-[400px]">
+          <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={purposeChartData}
+                  data={stats.byPurpose}
                   cx="50%"
                   cy="50%"
-                  innerRadius={80}
-                  outerRadius={120}
+                  innerRadius={60}
+                  outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {purposeChartData.map((entry, index) => (
+                  {stats.byPurpose.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                <Tooltip />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
