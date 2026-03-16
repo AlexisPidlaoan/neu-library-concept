@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useAuth } from '@/hooks/use-auth';
+import { useAuthContext } from '@/hooks/use-auth';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { History, LogIn, LogOut, GraduationCap, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, logout } = useAuth();
+  const { user, profile, loading, logout } = useAuthContext();
   const router = useRouter();
   const pathname = usePathname();
 
