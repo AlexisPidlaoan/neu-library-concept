@@ -18,7 +18,7 @@ import {
   Users, Calendar, Filter, Download, ArrowUpRight, 
   Clock, MapPin, Search, Loader2, BookOpen
 } from 'lucide-react'
-import { format, startOfDay, endOfDay, subDays, isWithinInterval } from 'date-fns'
+import { format, startOfDay, endOfDay, subDays, isWithinInterval, startOfToday, startOfYesterday, startOfWeek, startOfMonth } from 'date-fns'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 
@@ -32,6 +32,7 @@ export default function AdminDashboard() {
     from: subDays(new Date(), 7),
     to: new Date()
   })
+  const [quickFilter, setQuickFilter] = useState<string>('week')
   const [collegeFilter, setCollegeFilter] = useState<string>('all')
   const [userTypeFilter, setUserTypeFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -47,9 +48,11 @@ export default function AdminDashboard() {
     if (!visits) return []
     
     return visits.filter(v => {
+      const visitDate = v.timestamp?.toDate?.()
+      if (!visitDate) return false
+
       if (dateRange?.from && dateRange?.to) {
-        const visitDate = v.timestamp?.toDate?.()
-        if (!visitDate || !isWithinInterval(visitDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) })) {
+        if (!isWithinInterval(visitDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) })) {
           return false
         }
       }
@@ -90,6 +93,27 @@ export default function AdminDashboard() {
     return { total, students, employees, collegeData, purposeData }
   }, [filteredVisits])
 
+  const handleQuickFilter = (val: string) => {
+    setQuickFilter(val)
+    const now = new Date()
+    switch (val) {
+      case 'today':
+        setDateRange({ from: startOfToday(), to: now })
+        break
+      case 'yesterday':
+        setDateRange({ from: startOfYesterday(), to: startOfYesterday() })
+        break
+      case 'week':
+        setDateRange({ from: startOfWeek(now), to: now })
+        break
+      case 'month':
+        setDateRange({ from: startOfMonth(now), to: now })
+        break
+      default:
+        break
+    }
+  }
+
   const uniqueColleges = useMemo(() => {
     if (!visits) return []
     const set = new Set(visits.map(v => v.college).filter(Boolean))
@@ -116,7 +140,7 @@ export default function AdminDashboard() {
       body: tableData,
       startY: 35,
       theme: 'grid',
-      headStyles: { fillColor: [57, 110, 173] }
+      headStyles: { fillColor: [0, 51, 153] }
     })
 
     doc.save(`NEU_Library_Logs_${format(new Date(), 'yyyy-MM-dd')}.pdf`)
@@ -134,13 +158,13 @@ export default function AdminDashboard() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#396EAD] flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
             <BarChart className="h-8 w-8" />
             Visitor Analytics
           </h1>
           <p className="text-muted-foreground">Real-time statistics and departmental usage tracking.</p>
         </div>
-        <Button onClick={exportToPDF} className="bg-[#396EAD] hover:bg-[#396EAD]/90">
+        <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90">
           <Download className="h-4 w-4 mr-2" />
           Export Report
         </Button>
@@ -148,9 +172,25 @@ export default function AdminDashboard() {
 
       <Card className="border-none shadow-sm bg-white">
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">Date Range</label>
+              <label className="text-xs font-bold text-slate-400 uppercase">Quick View</label>
+              <Select value={quickFilter} onValueChange={handleQuickFilter}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Quick Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="yesterday">Yesterday</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase">Custom Dates</label>
               <DateRangePicker value={dateRange} onChange={setDateRange} />
             </div>
             
@@ -189,11 +229,11 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">Search</label>
+              <label className="text-xs font-bold text-slate-400 uppercase">Search Logs</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Name or Email..." 
+                  placeholder="Filter name/purpose..." 
                   className="pl-10 bg-white"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -210,9 +250,9 @@ export default function AdminDashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Total Visits</p>
-                <h3 className="text-3xl font-bold text-[#396EAD]">{stats.total}</h3>
+                <h3 className="text-3xl font-bold text-primary">{stats.total}</h3>
               </div>
-              <div className="p-3 bg-blue-50 text-[#396EAD] rounded-xl group-hover:scale-110 transition-transform">
+              <div className="p-3 bg-blue-50 text-primary rounded-xl group-hover:scale-110 transition-transform">
                 <Users className="h-6 w-6" />
               </div>
             </div>
@@ -224,9 +264,9 @@ export default function AdminDashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Student Entries</p>
-                <h3 className="text-3xl font-bold text-[#4CAF50]">{stats.students}</h3>
+                <h3 className="text-3xl font-bold text-success">{stats.students}</h3>
               </div>
-              <div className="p-3 bg-green-50 text-[#4CAF50] rounded-xl group-hover:scale-110 transition-transform">
+              <div className="p-3 bg-green-50 text-success rounded-xl group-hover:scale-110 transition-transform">
                 <BookOpen className="h-6 w-6" />
               </div>
             </div>
@@ -238,9 +278,9 @@ export default function AdminDashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Employee Entries</p>
-                <h3 className="text-3xl font-bold text-[#ED1C24]">{stats.employees}</h3>
+                <h3 className="text-3xl font-bold text-destructive">{stats.employees}</h3>
               </div>
-              <div className="p-3 bg-red-50 text-[#ED1C24] rounded-xl group-hover:scale-110 transition-transform">
+              <div className="p-3 bg-red-50 text-destructive rounded-xl group-hover:scale-110 transition-transform">
                 <Clock className="h-6 w-6" />
               </div>
             </div>
@@ -261,7 +301,7 @@ export default function AdminDashboard() {
                 <XAxis dataKey="name" hide />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value" fill="#396EAD" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
