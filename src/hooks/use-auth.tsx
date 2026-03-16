@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -63,6 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   const isTerminalSession = useRef(false);
   const isSearchingId = useRef(false);
+  const isLoggingIn = useRef(false);
   const profileFetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -186,13 +188,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [pendingStudentId, toast, auth, db]);
 
   const login = async () => {
+    if (isLoggingIn.current) return;
+    isLoggingIn.current = true;
     isTerminalSession.current = false;
+    
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
+      // Handle technical Firebase errors silently to prevent annoying toasts
+      const ignoredCodes = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
+      if (!ignoredCodes.includes(error.code)) {
         toast({ variant: 'destructive', title: 'Login Error', description: error.message });
       }
+    } finally {
+      isLoggingIn.current = false;
       setLoading(false);
     }
   };
