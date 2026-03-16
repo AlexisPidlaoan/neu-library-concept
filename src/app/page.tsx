@@ -2,7 +2,6 @@
 "use client"
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useAuthContext } from '@/hooks/use-auth'
@@ -10,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Wifi, ShieldCheck, Loader2 } from 'lucide-react'
+import { Wifi, ShieldCheck, Loader2, Lock } from 'lucide-react'
 
 export default function LandingPage() {
   const { loginWithId, login, loading, pendingStudentId, continueAsGuest, cancelLinking } = useAuthContext()
@@ -121,6 +120,16 @@ export default function LandingPage() {
                   <Image src="https://www.gstatic.com/images/branding/product/1x/gsuite_512dp.png" alt="Google" width={20} height={20} />
                   Institutional Google Account
                 </Button>
+
+                <div className="pt-4 flex justify-center">
+                  <Link 
+                    href="/admin/login" 
+                    className="text-slate-400 hover:text-primary text-xs flex items-center gap-1 transition-colors"
+                  >
+                    <Lock className="h-3 w-3" />
+                    Staff Login
+                  </Link>
+                </div>
               </form>
             )}
           </CardContent>
@@ -129,15 +138,6 @@ export default function LandingPage() {
         <div className="mt-8 flex items-center justify-center gap-2 text-white/90 text-sm font-semibold">
           <ShieldCheck className="h-4 w-4 text-emerald-400" />
           <span>Strictly for NEU Students and Personnel</span>
-        </div>
-
-        <div className="mt-4 text-center flex flex-col gap-2">
-          <Link 
-            href="/admin/login" 
-            className="text-white/60 hover:text-white text-xs underline underline-offset-4 transition-colors"
-          >
-            Administrator Login
-          </Link>
         </div>
       </div>
     </div>
