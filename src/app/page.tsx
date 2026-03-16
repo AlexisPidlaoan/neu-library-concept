@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useAuth } from '@/hooks/use-auth';
@@ -70,7 +69,6 @@ export default function Home() {
     setIsLoggingIn(true);
     try {
       await loginWithEmail(adminEmail, adminPass);
-      // Clear fields on success
       setAdminEmail('');
       setAdminPass('');
     } finally {
@@ -81,7 +79,6 @@ export default function Home() {
   const handleDialogOpenChange = (open: boolean) => {
     setIsAdminDialogOpen(open);
     if (!open) {
-      // Clear fields when dialog is closed
       setAdminEmail('');
       setAdminPass('');
     }
@@ -293,6 +290,28 @@ export default function Home() {
               ) : 'Log In to System'}
             </Button>
           </form>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setIsAdminDialogOpen(false);
+              login();
+            }} 
+            className="w-full h-12 text-lg gap-2 border-2 border-primary/10 hover:bg-primary/5 bg-white"
+          >
+            <Image src="https://picsum.photos/seed/google/20/20" alt="G" width={20} height={20} className="rounded-full" />
+            Institutional Google Account
+          </Button>
+
           <div className="text-center text-xs text-slate-500 mt-4">
             Authorized Personnel Only
           </div>
