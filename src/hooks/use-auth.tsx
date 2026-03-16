@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -133,14 +134,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             profileFetchedRef.current = firebaseUser.uid;
           } else {
             // New User Profile Creation
+            const isGuest = firebaseUser.isAnonymous;
             const newProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
-              displayName: firebaseUser.displayName || email?.split('@')[0] || 'Admin',
+              displayName: firebaseUser.displayName || email?.split('@')[0] || (isGuest ? 'Guest Student' : 'User'),
               photoURL: firebaseUser.photoURL || null,
               role: isAdminEmail ? 'admin' : 'student',
               studentId: pendingStudentId || null,
               isBlocked: false,
+              isGuest: isGuest,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
