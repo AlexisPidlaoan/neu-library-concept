@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -15,15 +14,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-interface DateRangePickerProps extends React.HTMLAttributes<HTMLDivElement> {
+interface DateRangePickerProps {
   value?: DateRange
   onChange?: (date: DateRange | undefined) => void
+  className?: string
 }
 
 export function DateRangePicker({
-  className,
   value,
   onChange,
+  className,
 }: DateRangePickerProps) {
   return (
     <div className={cn("grid gap-2", className)}>
@@ -33,7 +33,7 @@ export function DateRangePicker({
             id="date"
             variant={"outline"}
             className={cn(
-              "w-[300px] justify-start text-left font-normal border-slate-200",
+              "w-[300px] justify-start text-left font-normal bg-white",
               !value && "text-muted-foreground"
             )}
           >
@@ -52,7 +52,7 @@ export function DateRangePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0" align="end">
           <Calendar
             initialFocus
             mode="range"
