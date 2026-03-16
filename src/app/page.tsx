@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -42,7 +41,7 @@ export default function LandingPage() {
       
       <div className="w-full max-w-md relative z-10">
         <Card className="border-none shadow-2xl bg-white/95 overflow-hidden">
-          <div className="bg-[#003399] p-8 text-center text-white relative">
+          <div className="bg-primary p-8 text-center text-white relative">
             <div className="mx-auto w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-6">
               <Wifi className="h-8 w-8 text-white rotate-45" />
             </div>
@@ -105,7 +104,7 @@ export default function LandingPage() {
                 <Button 
                   type="submit" 
                   disabled={loading || studentId.replace(/-/g, '').length < 10}
-                  className="w-full h-12 bg-[#003399] hover:bg-[#002a7a] text-white font-bold text-lg"
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold text-lg"
                 >
                   {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 'PROCEED TO CHECK-IN'}
                 </Button>
@@ -148,7 +147,7 @@ export default function LandingPage() {
         </Card>
 
         <div className="mt-8 flex items-center justify-center gap-2 text-white/90 text-sm font-semibold">
-          <ShieldCheck className="h-4 w-4 text-emerald-400" />
+          <ShieldCheck className="h-4 w-4 text-success" />
           <span>Restricted to @neu.edu.ph Institutional IDs</span>
         </div>
       </div>
