@@ -1,8 +1,9 @@
 "use client"
 
 import { useMemo, useState } from 'react'
+import { useAuthContext } from '@/hooks/use-auth'
 import { useCollection, useMemoFirebase, useFirestore } from '@/firebase'
-import { collection, query, orderBy, where } from 'firebase/firestore'
+import { collection, query, orderBy, where, Timestamp } from 'firebase/firestore'
 import { 
   BarChart, 
   Bar, 
@@ -20,23 +21,22 @@ import {
   Users, 
   Building2, 
   Target, 
-  Calendar as CalendarIcon,
-  Search,
-  Users2,
   TrendingUp,
-  Filter
+  Loader2,
+  Filter,
+  Users2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { DateRange } from 'react-day-picker'
-import { startOfDay, endOfDay, isWithinInterval, subDays } from 'date-fns'
+import { startOfDay, endOfDay, isWithinInterval, subDays, startOfWeek, endOfWeek } from 'date-fns'
 
 const CHART_COLORS = ['#003399', '#00A859', '#FFD54F', '#ED1C24', '#9EB2BF', '#8b5cf6', '#ec4899']
 
 export default function AdminDashboard() {
+  const { profile } = useAuthContext()
   const db = useFirestore()
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -54,26 +54,25 @@ export default function AdminDashboard() {
     return query(collection(db, 'visits'), orderBy('timestamp', 'desc'))
   }, [db])
 
-  const { data: visits = [], isLoading } = useCollection(visitsQuery)
+  const { data: rawVisits, isLoading } = useCollection(visitsQuery)
+  const visits = useMemo(() => rawVisits || [], [rawVisits])
 
-  // Safe access to visits with null check
-  const safeVisits = Array.isArray(visits) ? visits : []
-
-  // Extract unique filter values
+  // Fetch unique colleges
   const uniqueColleges = useMemo(() => {
-    const set = new Set(safeVisits.map(v => v.college).filter(Boolean))
+    const set = new Set(visits.map(v => v.college).filter(Boolean))
     return Array.from(set).sort()
-  }, [safeVisits])
+  }, [visits])
 
+  // Fetch unique purposes
   const uniquePurposes = useMemo(() => {
-    const set = new Set(safeVisits.map(v => v.purpose).filter(Boolean))
+    const set = new Set(visits.map(v => v.purpose).filter(Boolean))
     return Array.from(set).sort()
-  }, [safeVisits])
+  }, [visits])
 
   // Filtered data for statistics
   const filteredVisits = useMemo(() => {
-    return safeVisits.filter(visit => {
-      const date = visit.timestamp?.toDate()
+    return visits.filter(visit => {
+      const date = (visit.timestamp as any)?.toDate()
       if (!date) return false
 
       const inDateRange = !dateRange?.from || !dateRange?.to || 
@@ -83,24 +82,28 @@ export default function AdminDashboard() {
         })
 
       const inCollege = filters.college === 'all' || visit.college === filters.college
-      const inUserType = filters.userType === 'all' || visit.userType === filters.userType
+      const inUserType = filters.userType === 'all' || (filters.userType === 'employee' ? (visit.userType === 'teacher' || visit.userType === 'staff') : visit.userType === filters.userType)
       const inPurpose = filters.purpose === 'all' || visit.purpose === filters.purpose
 
       return inDateRange && inCollege && inUserType && inPurpose
     })
-  }, [safeVisits, dateRange, filters])
+  }, [visits, dateRange, filters])
 
   // Aggregate statistics
   const stats = useMemo(() => {
     const total = filteredVisits.length
     const byCollege: Record<string, number> = {}
     const byPurpose: Record<string, number> = {}
-    const byUserType: Record<string, number> = {}
+    const byUserType: Record<string, number> = {
+      'student': 0,
+      'teacher': 0,
+      'staff': 0
+    }
 
     filteredVisits.forEach(v => {
-      byCollege[v.college] = (byCollege[v.college] || 0) + 1
-      byPurpose[v.purpose] = (byPurpose[v.purpose] || 0) + 1
-      byUserType[v.userType || 'student'] = (byUserType[v.userType || 'student'] || 0) + 1
+      if (v.college) byCollege[v.college] = (byCollege[v.college] || 0) + 1
+      if (v.purpose) byPurpose[v.purpose] = (byPurpose[v.purpose] || 0) + 1
+      if (v.userType) byUserType[v.userType] = (byUserType[v.userType] || 0) + 1
     })
 
     return {
@@ -111,6 +114,17 @@ export default function AdminDashboard() {
     }
   }, [filteredVisits])
 
+  const setPreset = (type: 'day' | 'week' | 'month') => {
+    const now = new Date()
+    if (type === 'day') {
+      setDateRange({ from: startOfDay(now), to: endOfDay(now) })
+    } else if (type === 'week') {
+      setDateRange({ from: startOfWeek(now), to: endOfWeek(now) })
+    } else {
+      setDateRange({ from: subDays(now, 30), to: now })
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -119,23 +133,27 @@ export default function AdminDashboard() {
     )
   }
 
+  if (profile?.role !== 'admin') return <div className="p-8">Access Denied</div>
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Library Statistics</h1>
-          <p className="text-muted-foreground">Monitor and analyze library usage patterns.</p>
+          <h1 className="text-3xl font-bold text-primary">Visitor Statistics</h1>
+          <p className="text-muted-foreground">Comprehensive insights into library attendance.</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setPreset('day')}>Today</Button>
+          <Button variant="outline" size="sm" onClick={() => setPreset('week')}>This Week</Button>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 space-y-0">
             <CardDescription className="flex items-center gap-2">
-              <Users className="h-4 w-4" /> Total Visitors
+              <Users className="h-4 w-4 text-primary" /> Total Entries
             </CardDescription>
             <CardTitle className="text-2xl font-bold">{stats.total}</CardTitle>
           </CardHeader>
@@ -162,10 +180,9 @@ export default function AdminDashboard() {
             </div>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All User Types</SelectItem>
+            <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="student">Students</SelectItem>
-            <SelectItem value="teacher">Teachers</SelectItem>
-            <SelectItem value="staff">Staff</SelectItem>
+            <SelectItem value="employee">Employees (Teacher/Staff)</SelectItem>
           </SelectContent>
         </Select>
 
@@ -184,19 +201,19 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-white shadow-sm">
+        <Card className="bg-white shadow-sm border-none">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
               Visits by College
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.byCollege} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" width={120} fontSize={12} />
+                <YAxis dataKey="name" type="category" width={150} fontSize={11} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#003399" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -204,31 +221,31 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-sm">
+        <Card className="bg-white shadow-sm border-none">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              Purpose Distribution
+              Purpose of Visit
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={stats.byPurpose}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  innerRadius={70}
+                  outerRadius={110}
                   paddingAngle={5}
                   dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
                   {stats.byPurpose.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
