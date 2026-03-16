@@ -1,505 +1,342 @@
 
 "use client"
 
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { useAuth } from '@/hooks/use-auth';
-import { initializeFirebase } from '@/firebase';
-import { collection, query, getDocs, limit } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { format, startOfDay, startOfWeek, startOfMonth, endOfDay, eachDayOfInterval, isSameDay, isAfter, subDays } from 'date-fns';
-import { LayoutDashboard, Download, Search, Users, School, Loader2, TrendingUp, GraduationCap, PieChart as PieChartIcon, AlertCircle, RefreshCw } from 'lucide-react';
-import { jsPDF } from "jspdf";
-import autoTable from 'jspdf-autotable';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useState, useMemo } from 'react'
+import { useCollection, useMemoFirebase } from '@/firebase'
+import { collection, query, orderBy } from 'firebase/firestore'
+import { useFirestore } from '@/firebase'
+import { format, isWithinInterval, startOfToday, startOfWeek, subDays, startOfMonth } from 'date-fns'
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie,
+  Legend
+} from 'recharts'
+import { 
+  Users, 
+  Calendar as CalendarIcon, 
+  Briefcase, 
+  GraduationCap,
+  Activity,
+  FilterX
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { DateRange } from 'react-day-picker'
 
-const { firestore: db } = initializeFirebase();
+const CHART_COLORS = ['#003399', '#00A859', '#FFD54F', '#ED1C24', '#9EB2BF', '#8b5cf6', '#ec4899']
 
-const CHART_COLORS = ['#003399', '#00A859', '#FFD54F', '#ED1C24', '#9EB2BF'];
+export default function AdminDashboard() {
+  const db = useFirestore()
+  
+  const [timePreset, setTimePreset] = useState<'today' | 'week' | 'month' | 'custom'>('week')
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 7),
+    to: new Date(),
+  })
+  const [collegeFilter, setCollegeFilter] = useState<string>('all')
+  const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'student' | 'teacher' | 'staff'>('all')
+  const [purposeFilter, setPurposeFilter] = useState<string>('all')
 
-const DEPT_ABBREVIATIONS: Record<string, string> = {
-  "College of Arts and Sciences (CAS)": "CAS",
-  "College of Business Administration (CBA)": "CBA",
-  "College of Communication (COC)": "COC",
-  "College of Education (CED)": "CED",
-  "College of Engineering and Architecture (CEA)": "CEA",
-  "College of Informatics and Computing Studies (CICS)": "CICS",
-  "Medical & Health Sciences": "MHS",
-  "Specialized Colleges": "SC"
-};
+  // Fetch all visits
+  const visitsQuery = useMemoFirebase(() => {
+    return query(collection(db, 'visits'), orderBy('timestamp', 'desc'))
+  }, [db])
+  
+  const { data: visits = [], isLoading } = useCollection(visitsQuery)
 
-export default function AdminDashboardPage() {
-  const { profile } = useAuth();
-  const [visits, setVisits] = useState<any[]>([]);
-  const [colleges, setColleges] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [timeFilter, setTimeFilter] = useState('week'); // Default to 'week' to show trends
-  const [collegeFilter, setCollegeFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isExporting, setIsExporting] = useState(false);
-  const hasFetched = useRef(false);
+  // Fetch unique colleges from visits or a predefined list
+  const uniqueColleges = useMemo(() => {
+    const set = new Set(visits.map(v => v.college).filter(Boolean))
+    return Array.from(set).sort()
+  }, [visits])
 
-  const fetchData = useCallback(async (force = false) => {
-    if (!profile || profile.role !== 'admin') return;
-    if (hasFetched.current && !force) return;
+  // Fetch unique purposes
+  const uniquePurposes = useMemo(() => {
+    const set = new Set(visits.map(v => v.purpose).filter(Boolean))
+    return Array.from(set).sort()
+  }, [visits])
+
+  // Filter logic
+  const filteredData = useMemo(() => {
+    if (!visits) return []
     
-    setLoading(true);
-    setError(null);
-    try {
-      const collegeSnap = await getDocs(collection(db, 'colleges')).catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'colleges',
-          operation: 'list'
-        }));
-        throw err;
-      });
-      setColleges(collegeSnap.docs.map(doc => doc.data().name));
-
-      const q = query(collection(db, 'visits'), limit(1000));
-      const querySnapshot = await getDocs(q).catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'visits',
-          operation: 'list'
-        }));
-        throw err;
-      });
-
-      const fetchedVisits = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().timestamp?.toDate() || new Date(),
-      }));
-      
-      fetchedVisits.sort((a, b) => b.date.getTime() - a.date.getTime());
-      
-      setVisits(fetchedVisits);
-      hasFetched.current = true;
-    } catch (err: any) {
-      if (err.code === 'resource-exhausted') {
-        setError("Database Quota Exceeded. Please try again later.");
-      } else {
-        setError(`Database Access Error: Ensure you are logged in as an administrator.`);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [profile?.id, profile?.role]);
-
-  useEffect(() => {
-    if (profile?.role === 'admin') {
-      fetchData();
-    }
-  }, [profile?.role, fetchData]);
-
-  const filteredVisits = useMemo(() => {
-    const now = new Date();
     return visits.filter(visit => {
-      let matchesTime = true;
-      if (timeFilter === 'today') {
-        matchesTime = isSameDay(visit.date, now);
-      } else if (timeFilter === 'week') {
-        matchesTime = isAfter(visit.date, subDays(startOfDay(now), 7));
-      } else if (timeFilter === 'month') {
-        matchesTime = isAfter(visit.date, startOfMonth(now));
+      const visitDate = visit.timestamp?.toDate() || new Date()
+      
+      // Date Filter
+      let inDateRange = true
+      if (timePreset === 'today') {
+        inDateRange = isWithinInterval(visitDate, { start: startOfToday(), end: new Date() })
+      } else if (timePreset === 'week') {
+        inDateRange = isWithinInterval(visitDate, { start: startOfWeek(new Date()), end: new Date() })
+      } else if (timePreset === 'month') {
+        inDateRange = isWithinInterval(visitDate, { start: startOfMonth(new Date()), end: new Date() })
+      } else if (timePreset === 'custom' && dateRange?.from && dateRange?.to) {
+        inDateRange = isWithinInterval(visitDate, { start: dateRange.from, end: dateRange.to })
       }
 
-      const matchesCollege = collegeFilter === 'all' || visit.college === collegeFilter;
-      const searchLow = searchTerm.toLowerCase();
-      const matchesSearch = 
-        (visit.userName?.toLowerCase() || "").includes(searchLow) ||
-        (visit.userEmail?.toLowerCase() || "").includes(searchLow) ||
-        (visit.program?.toLowerCase() || "").includes(searchLow) ||
-        (visit.purpose?.toLowerCase() || "").includes(searchLow);
-      
-      return matchesTime && matchesCollege && matchesSearch;
-    });
-  }, [visits, timeFilter, collegeFilter, searchTerm]);
+      // College Filter
+      const inCollege = collegeFilter === 'all' || visit.college === collegeFilter
 
-  const trendData = useMemo(() => {
-    const now = new Date();
-    let interval: { start: Date; end: Date };
+      // User Type Filter
+      const inUserType = userTypeFilter === 'all' || visit.userType === userTypeFilter
+
+      // Purpose Filter
+      const inPurpose = purposeFilter === 'all' || visit.purpose === purposeFilter
+
+      return inDateRange && inCollege && inUserType && inPurpose
+    })
+  }, [visits, timePreset, dateRange, collegeFilter, userTypeFilter, purposeFilter])
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = filteredData.length
+    const students = filteredData.filter(v => v.userType === 'student').length
+    const teachers = filteredData.filter(v => v.userType === 'teacher').length
+    const staff = filteredData.filter(v => v.userType === 'staff').length
+    const employees = teachers + staff
     
-    if (timeFilter === 'today') {
-      interval = { start: startOfDay(now), end: endOfDay(now) };
-    } else if (timeFilter === 'week') {
-      interval = { start: subDays(startOfDay(now), 6), end: now };
-    } else if (timeFilter === 'month') {
-      interval = { start: startOfMonth(now), end: now };
-    } else {
-      const oldest = visits.length > 0 ? visits[visits.length - 1].date : subDays(now, 30);
-      interval = { start: oldest, end: now };
-    }
+    return { total, students, teachers, staff, employees }
+  }, [filteredData])
 
-    const days = eachDayOfInterval(interval);
-    return days.map(day => {
-      const count = visits.filter(v => isSameDay(v.date, day)).length;
-      return {
-        date: format(day, 'MMM dd'),
-        visitors: count
-      };
-    });
-  }, [visits, timeFilter]);
+  // Chart Data: Visits by College
+  const collegeChartData = useMemo(() => {
+    const data: Record<string, number> = {}
+    filteredData.forEach(v => {
+      const label = v.college || 'Unspecified'
+      data[label] = (data[label] || 0) + 1
+    })
+    return Object.entries(data).map(([name, value]) => ({ name, value }))
+  }, [filteredData])
 
-  const collegeStats = useMemo(() => {
-    const stats = filteredVisits.reduce((acc: any, visit) => {
-      const name = DEPT_ABBREVIATIONS[visit.college] || visit.college || 'Other';
-      acc[name] = (acc[name] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(stats).map(([name, value]) => ({ name, value }));
-  }, [filteredVisits]);
+  // Chart Data: Visits by Purpose
+  const purposeChartData = useMemo(() => {
+    const data: Record<string, number> = {}
+    filteredData.forEach(v => {
+      const label = v.purpose || 'Unspecified'
+      data[label] = (data[label] || 0) + 1
+    })
+    return Object.entries(data).map(([name, value]) => ({ name, value }))
+  }, [filteredData])
 
-  const topCollegeName = useMemo(() => {
-    if (filteredVisits.length === 0) return 'N/A';
-    const counts = filteredVisits.reduce((acc: any, visit) => {
-      acc[visit.college] = (acc[visit.college] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'N/A';
-  }, [filteredVisits]);
+  const resetFilters = () => {
+    setTimePreset('week')
+    setCollegeFilter('all')
+    setUserTypeFilter('all')
+    setPurposeFilter('all')
+    setDateRange({ from: subDays(new Date(), 7), to: new Date() })
+  }
 
-  const topProgram = useMemo(() => {
-    if (filteredVisits.length === 0) return 'N/A';
-    const counts = filteredVisits.reduce((acc: any, visit) => {
-      acc[visit.program] = (acc[visit.program] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'N/A';
-  }, [filteredVisits]);
-
-  const generatePDF = () => {
-    setIsExporting(true);
-    const doc = new jsPDF();
-    
-    doc.setFontSize(22);
-    doc.setTextColor(0, 51, 153);
-    doc.text("NEU Library Visitor Report", 14, 22);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Generated on: ${format(new Date(), 'PPP p')}`, 14, 30);
-    doc.text(`Timeframe: ${timeFilter.toUpperCase()}`, 14, 37);
-    doc.text(`Total Visitors: ${filteredVisits.length}`, 14, 44);
-
-    const tableData = filteredVisits.map(v => [
-      v.userName,
-      v.college,
-      v.program || 'N/A',
-      v.purpose,
-      format(v.date, 'MMM dd, yyyy HH:mm')
-    ]);
-
-    autoTable(doc, {
-      startY: 60,
-      head: [['Visitor Name', 'Department', 'Program', 'Purpose', 'Date & Time']],
-      body: tableData,
-      headStyles: { fillColor: [0, 51, 153] },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-    });
-
-    doc.save(`NEU_Report_${timeFilter}_${format(new Date(), 'yyyyMMdd')}.pdf`);
-    setIsExporting(false);
-  };
-
-  if (profile?.role !== 'admin') {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md text-center p-8 border-none shadow-lg bg-white">
-          <CardTitle className="text-destructive mb-2">Access Denied</CardTitle>
-          <CardDescription>Administrative privileges required to view database analytics.</CardDescription>
-        </Card>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Loading analytics data...</p>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-2">
-            <LayoutDashboard className="h-8 w-8" />
-            Visitor Dashboard
-          </h1>
-          <p className="text-muted-foreground">Monitor library activity and institutional trends.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Library Insights</h1>
+          <p className="text-muted-foreground font-medium">Real-time visitor analytics and trends</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => fetchData(true)} disabled={loading} className="bg-white">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button 
-            variant="default" 
-            className="gap-2 shadow-lg bg-primary hover:bg-primary/90" 
-            onClick={generatePDF} 
-            disabled={isExporting || filteredVisits.length === 0}
-          >
-            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Export PDF
-          </Button>
+        <Button variant="outline" size="sm" onClick={resetFilters} className="gap-2">
+          <FilterX className="h-4 w-4" /> Reset Filters
+        </Button>
+      </div>
+
+      {/* Advanced Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-5 rounded-xl shadow-sm border">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
+            <CalendarIcon className="h-3 w-3" /> Timeframe
+          </label>
+          <Select value={timePreset} onValueChange={(v: any) => setTimePreset(v)}>
+            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {timePreset === 'custom' && (
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
+              Select Range
+            </label>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
+            <School className="h-3 w-3" /> College
+          </label>
+          <Select value={collegeFilter} onValueChange={setCollegeFilter}>
+            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Colleges</SelectItem>
+              {uniqueColleges.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
+            <Users className="h-3 w-3" /> User Type
+          </label>
+          <Select value={userTypeFilter} onValueChange={(v: any) => setUserTypeFilter(v)}>
+            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="student">Students</SelectItem>
+              <SelectItem value="teacher">Teachers</SelectItem>
+              <SelectItem value="staff">Staff</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-500 flex items-center gap-1 uppercase">
+            <Activity className="h-3 w-3" /> Purpose
+          </label>
+          <Select value={purposeFilter} onValueChange={setPurposeFilter}>
+            <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Purposes</SelectItem>
+              {uniquePurposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {error && (
-        <Alert variant="destructive" className="bg-white border-destructive shadow-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>System Status</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-4">
-            {error}
-            <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => fetchData(true)}>Retry</Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-none shadow-sm bg-primary text-white">
+        <Card className="border-none shadow-md bg-gradient-to-br from-[#003399] to-[#002a7a] text-white">
           <CardHeader className="pb-2">
-            <CardDescription className="text-white/70 flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Total Visitors
-            </CardDescription>
-            <CardTitle className="text-4xl font-bold">{filteredVisits.length}</CardTitle>
+            <CardDescription className="text-white/70">Total Visitors</CardDescription>
+            <CardTitle className="text-4xl font-bold">{stats.total}</CardTitle>
           </CardHeader>
-        </Card>
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-[#00A859]">
-              <School className="h-4 w-4" />
-              Top Department
-            </CardDescription>
-            <CardTitle className="text-lg font-bold truncate text-primary">
-              {topCollegeName}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-[#FFD54F]">
-              <GraduationCap className="h-4 w-4" />
-              Top Program
-            </CardDescription>
-            <CardTitle className="text-lg font-bold truncate text-primary">
-              {topProgram}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-[#ED1C24]">
-              <TrendingUp className="h-4 w-4" />
-              System Status
-            </CardDescription>
-            <CardTitle className="text-2xl font-bold text-primary">
-              Active
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <Card className="lg:col-span-8 border-none shadow-lg bg-white">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 text-primary">
-              <TrendingUp className="h-5 w-5" />
-              Traffic Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-[350px] w-full pt-4">
-            {loading && visits.length === 0 ? (
-              <div className="h-full w-full flex items-center justify-center bg-slate-50 rounded-lg">
-                <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip 
-                    cursor={{ fill: '#f8fafc' }}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-white p-3 border rounded-lg shadow-xl text-xs">
-                            <p className="font-bold text-slate-900">{payload[0].payload.date}</p>
-                            <p className="text-primary">{payload[0].value} Visitors</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Bar dataKey="visitors" fill="#003399" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+          <CardContent>
+            <div className="text-xs text-white/60">Across selected filters</div>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4 border-none shadow-lg bg-white">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 text-primary">
-              <PieChartIcon className="h-5 w-5" />
-              Department Breakdown
+        <Card className="border-none shadow-md bg-white">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-slate-500">Total Students</CardDescription>
+            <CardTitle className="text-4xl font-bold text-[#003399]">{stats.students}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-[#003399]" />
+              <div className="text-xs font-medium text-slate-400">Enrolled Students</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-md bg-white">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-slate-500">Total Employees</CardDescription>
+            <CardTitle className="text-4xl font-bold text-[#00A859]">{stats.employees}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-[#00A859]" />
+              <div className="text-xs font-medium text-slate-400">Teachers & Staff</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-md bg-white">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-slate-500">Average Daily</CardDescription>
+            <CardTitle className="text-4xl font-bold text-[#FFD54F]">
+              {Math.round(stats.total / (timePreset === 'week' ? 7 : timePreset === 'month' ? 30 : 1))}
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px] w-full pt-4">
-            {loading && visits.length === 0 ? (
-              <div className="h-full w-full flex items-center justify-center bg-slate-50 rounded-lg">
-                <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
-              </div>
-            ) : collegeStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={collegeStats}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {collegeStats.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-white p-2 border rounded-md shadow-lg text-[10px]">
-                            <p className="font-bold">{payload[0].name}</p>
-                            <p className="text-primary">{payload[0].value} visits</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-sm">
-                No departmental data found.
-              </div>
-            )}
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-[#FFD54F]" />
+              <div className="text-xs font-medium text-slate-400">Visits per day</div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <Card className="lg:col-span-1 border-none shadow-lg bg-white h-fit">
+      {/* Detailed Visuals */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-md bg-white">
           <CardHeader>
-            <CardTitle className="text-lg">Filters</CardTitle>
+            <CardTitle className="text-lg font-bold text-slate-800">Engagement by College</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Timeframe</label>
-              <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger className="w-full bg-slate-50 border-primary/10">
-                  <SelectValue placeholder="Select timeframe" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Department</label>
-              <Select value={collegeFilter} onValueChange={setCollegeFilter}>
-                <SelectTrigger className="w-full bg-slate-50 border-primary/10">
-                  <SelectValue placeholder="All Departments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  {colleges.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Quick Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Visitor name..." 
-                  className="pl-10 bg-slate-50 border-primary/10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+          <CardContent className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={collegeChartData} layout="vertical" margin={{ left: 30, right: 30 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                <XAxis type="number" hide />
+                <YAxis 
+                  dataKey="name" 
+                  type="category" 
+                  width={150} 
+                  fontSize={10} 
+                  tick={{ fill: '#64748b' }} 
                 />
-              </div>
-            </div>
+                <Tooltip 
+                  cursor={{ fill: '#f1f5f9' }}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Bar dataKey="value" fill="#003399" radius={[0, 4, 4, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3 border-none shadow-lg bg-white overflow-hidden">
-          <CardHeader className="border-b bg-slate-50/50">
-            <CardTitle className="text-lg">Visitor Log</CardTitle>
+        <Card className="border-none shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-slate-800">Purpose Distribution</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto min-h-[400px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Visitor</TableHead>
-                    <TableHead>Dept / Program</TableHead>
-                    <TableHead>Purpose</TableHead>
-                    <TableHead>Timestamp</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading && visits.length === 0 ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell colSpan={4}><div className="h-12 w-full bg-slate-50 animate-pulse rounded"></div></TableCell>
-                      </TableRow>
-                    ))
-                  ) : filteredVisits.length > 0 ? (
-                    filteredVisits.map((visit) => (
-                      <TableRow key={visit.id}>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-semibold">{visit.userName}</span>
-                            <span className="text-xs text-muted-foreground">{visit.userEmail}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge variant="outline" className="font-normal w-fit text-[10px] border-primary text-primary">{visit.college}</Badge>
-                            <span className="text-xs text-muted-foreground italic line-clamp-1">{visit.program}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate font-medium text-slate-700">{visit.purpose}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {format(visit.date, 'MMM dd, HH:mm')}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
-                        No records found matching your selection.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+          <CardContent className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={purposeChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={120}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {purposeChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
     </div>
-  );
+  )
 }
