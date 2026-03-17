@@ -3,7 +3,7 @@
     {
       "id": "hero-library",
       "description": "Actual photo of the New Era University Library building.",
-      "imageUrl": "/NEU Library.png",
+      "imageUrl": "/public/NEU Library.png",
       "imageHint": "NEU library building"
     },
     {
