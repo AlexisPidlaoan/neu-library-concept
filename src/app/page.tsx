@@ -35,14 +35,22 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=2000&auto=format&fit=crop')" }}>
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
+    <div 
+      className="min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative" 
+      style={{ backgroundImage: "url('/NEU Library.png')" }}
+    >
+      <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-[2px]"></div>
       
       <div className="w-full max-w-md relative z-10">
         <Card className="border-none shadow-2xl bg-white/95 overflow-hidden rounded-2xl">
           <div className="bg-primary p-10 text-center text-white relative">
-            <div className="mx-auto w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md border border-white/20">
-              <GraduationCap className="h-10 w-10 text-white" />
+          
+            <div className="mx-auto w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-lg border border-white/20 p-2">
+              <img 
+                src="/neu.png" 
+                alt="NEU Logo" 
+                className="w-full h-full object-contain" 
+              />
             </div>
             <h1 className="text-3xl font-extrabold mb-2 tracking-tight">NEU Library Log</h1>
             <p className="text-blue-100/80 font-medium">Digital Entry Terminal</p>
