@@ -2,15 +2,15 @@
   "placeholderImages": [
     {
       "id": "hero-library",
-      "description": "Actual photo of the New Era University Library building.",
-      "imageUrl": "/public/NEU Library.png",
-      "imageHint": "NEU library building"
+      "description": "Background image of the New Era University Library building.",
+      "imageUrl": "/NEU Library.png",
+      "imageHint": "NEU library building background"
     },
     {
       "id": "app-logo",
-      "description": "Abstract logo representing knowledge flow.",
-      "imageUrl": "https://picsum.photos/seed/studyflow-logo/200/200",
-      "imageHint": "education logo abstract"
+      "description": "Official NEU logo for the visitor logbook.",
+      "imageUrl": "/neu.png",
+      "imageHint": "NEU logo small"
     }
   ]
 }
