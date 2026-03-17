@@ -3,13 +3,13 @@
     {
       "id": "hero-library",
       "description": "Background image of the New Era University Library building.",
-      "imageUrl": "/NEU Library.png",
+      "imageUrl": "neu-library-concept/public/NEU Library.png",
       "imageHint": "NEU library building background"
     },
     {
       "id": "app-logo",
       "description": "Official NEU logo for the visitor logbook.",
-      "imageUrl": "/neu.png",
+      "imageUrl": "neu-library-concept/public/neu.png",
       "imageHint": "NEU logo small"
     }
   ]
