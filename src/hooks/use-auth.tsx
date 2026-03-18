@@ -31,6 +31,13 @@ const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+const SUPER_ADMINS = [
+  'jcesperanza@neu.edu.ph',
+  'alexis.pidlaoan@neu.edu.ph', 
+  'pampa4858@gmail.com', 
+  'admin@neu.edu.ph'
+];
+
 interface UserProfile {
   id: string;
   email: string | null;
@@ -69,7 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // If we are manually handling a terminal session, don't overwrite with auth listener
       if (manualProfileRef.current) {
         setLoading(false);
         return;
@@ -84,12 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const email = firebaseUser.email?.toLowerCase() || '';
-        const isSuperAdmin = [
-          'jcesperanza@neu.edu.ph',
-          'alexis.pidlaoan@neu.edu.ph', 
-          'pampa4858@gmail.com', 
-          'admin@neu.edu.ph'
-        ].includes(email);
+        const isSuperAdmin = SUPER_ADMINS.includes(email);
         
         const isInstitutional = email.endsWith('@neu.edu.ph') || isSuperAdmin;
 
@@ -99,6 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
+
+        // Set user immediately to stop loading if profile takes time
+        setUser(firebaseUser);
+        setLoading(false);
 
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userRef);
@@ -112,16 +117,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (currentProfile.isBlocked) {
             await signOut(auth);
             toast({ variant: 'destructive', title: 'Blocked', description: 'Access restricted.' });
-            setLoading(false);
+            setProfile(null);
+            setUser(null);
             return;
           }
 
           if (isSuperAdmin && currentProfile.role !== 'admin') {
-            await updateDoc(userRef, { role: 'admin' });
+            updateDoc(userRef, { role: 'admin' });
             currentProfile.role = 'admin';
           }
         } else {
-          // New User Setup
           currentProfile = {
             id: firebaseUser.uid,
             email: firebaseUser.email,
@@ -132,18 +137,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isGuest: firebaseUser.isAnonymous
           };
           
-          await setDoc(userRef, { ...currentProfile, createdAt: serverTimestamp() });
+          setDoc(userRef, { ...currentProfile, createdAt: serverTimestamp() });
           
           if (currentProfile.role === 'admin') {
-            await setDoc(doc(db, 'admins', firebaseUser.uid), { active: true });
+            setDoc(doc(db, 'admins', firebaseUser.uid), { active: true });
           }
         }
 
         setProfile(currentProfile);
-        setUser(firebaseUser);
       } catch (err) {
         console.error("Auth Listener Error:", err);
-      } finally {
         setLoading(false);
       }
     });
@@ -168,7 +171,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithId = async (id: string) => {
     setLoading(true);
     try {
-      // Ensure we have a session to query Firestore
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
@@ -188,9 +190,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile({ ...userData, id: snap.docs[0].id });
         setUser(auth.currentUser);
         setPendingStudentId(null);
+        setLoading(false);
         router.push('/dashboard/check-in');
       } else {
-        // ID not in database -> show linking options
         setPendingStudentId(id);
         setLoading(false); 
       }
@@ -217,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
+      setLoading(false);
       router.push('/admin/dashboard');
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid credentials.' });
@@ -229,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     manualProfileRef.current = false;
     try {
       if (!auth.currentUser) await signInAnonymously(auth);
+      setLoading(false);
       router.push('/dashboard/check-in');
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Guest session failed.' });
