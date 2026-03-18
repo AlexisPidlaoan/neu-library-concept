@@ -2,7 +2,7 @@
 
 import { useAuthContext } from '@/hooks/use-auth';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { LayoutDashboard, LogOut, GraduationCap, Users, BookMarked, LogIn } from 'lucide-react';
+import { LayoutDashboard, LogOut, GraduationCap, Users, BookMarked, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -34,12 +34,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const adminItems = [
-    { label: 'Visitor Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', color: 'text-[#00A859]' }, 
-    { label: 'College Management', icon: BookMarked, href: '/admin/colleges', color: 'text-[#FFD54F]' }, 
-    { label: 'User Management', icon: Users, href: '/admin/users', color: 'text-[#ED1C24]' }, 
+    { label: 'Visitor Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', color: 'text-success' }, 
+    { label: 'College Management', icon: BookMarked, href: '/admin/colleges', color: 'text-accent' }, 
+    { label: 'User Management', icon: Users, href: '/admin/users', color: 'text-destructive' }, 
   ];
-
-  const isAlsoStudent = !!profile?.studentId;
 
   return (
     <SidebarProvider>
@@ -72,16 +70,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </SidebarMenuItem>
             ))}
 
-            {isAlsoStudent && (
-              <div className="mt-4 px-4">
-                <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2 border-primary/20 hover:bg-primary/5">
-                  <Link href="/dashboard/check-in">
-                    <LogIn className="h-3 w-3 text-primary" />
-                    Student View
-                  </Link>
-                </Button>
-              </div>
-            )}
+            <div className="mt-4 px-4">
+              <Button variant="outline" size="sm" asChild className="w-full text-xs gap-2 border-primary/20 hover:bg-primary/5">
+                <Link href="/dashboard/check-in">
+                  <UserCircle className="h-3 w-3 text-primary" />
+                  Student View
+                </Link>
+              </Button>
+            </div>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="p-4 border-t">
@@ -107,15 +103,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <DropdownMenuContent align="end" side="right" className="w-56">
               <DropdownMenuLabel>Admin Session</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {isAlsoStudent && (
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/check-in" className="cursor-pointer">
-                    <LogIn className="mr-2 h-4 w-4 text-primary" />
-                    Student Check-in
-                  </Link>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={logout} className="text-[#ED1C24] cursor-pointer font-semibold">
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/check-in" className="cursor-pointer">
+                  <UserCircle className="mr-2 h-4 w-4 text-primary" />
+                  Student Check-in
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer font-semibold">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>
