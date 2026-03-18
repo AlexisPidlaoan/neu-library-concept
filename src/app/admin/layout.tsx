@@ -3,7 +3,7 @@
 
 import { useAuthContext } from '@/hooks/use-auth';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { LayoutDashboard, LogOut, GraduationCap, Users, BookMarked, UserCircle } from 'lucide-react';
+import { LayoutDashboard, LogOut, GraduationCap, Users, BookMarked, UserCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -28,18 +28,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, profile, loading, router, isLoginPage]);
 
-  // If it's the login page, render it immediately without blocking
   if (isLoginPage) return <>{children}</>;
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <Loader2 className="animate-spin h-10 w-10 text-primary" />
       </div>
     );
   }
 
-  if (!user || profile?.role !== 'admin') {
+  if (!user || (profile && profile.role !== 'admin')) {
     return null;
   }
 
@@ -90,14 +89,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.photoURL || ''} />
+                  <AvatarImage src={user?.photoURL || ''} />
                   <AvatarFallback className="bg-primary text-white">
                     {profile?.displayName?.charAt(0) || 'A'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col text-left group-data-[collapsible=icon]:hidden ml-3">
                   <span className="text-sm font-bold truncate text-primary">{profile?.displayName || 'Admin'}</span>
-                  <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+                  <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
                 </div>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
