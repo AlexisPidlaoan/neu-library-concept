@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useAuthContext } from '@/hooks/use-auth';
@@ -15,16 +16,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
 
+  const isLoginPage = pathname === '/admin/login';
+
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !isLoginPage) {
       if (!user) {
         router.push('/admin/login');
       } else if (profile?.role !== 'admin') {
         router.push('/dashboard/check-in');
       }
     }
-  }, [user, profile, loading, router]);
+  }, [user, profile, loading, router, isLoginPage]);
 
+  // If we're on the login page, just render children without sidebar logic
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  // Show loading while checking auth for protected admin pages
   if (loading || !user || profile?.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
