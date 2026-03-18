@@ -1,34 +1,46 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 32 22% 77%; /* #D1C4B5 Beige */
+    /* NEU INSTITUTIONAL PALETTE - HSL CONVERSIONS */
+    --background: 32 22% 77%; /* #D1C4B5 Institutional Beige */
     --foreground: 220 100% 10%;
+    
     --card: 0 0% 100%;
     --card-foreground: 220 100% 10%;
+    
     --popover: 0 0% 100%;
     --popover-foreground: 220 100% 10%;
-    --primary: 220 100% 30%; /* #003399 Blue */
+    
+    --primary: 220 100% 30%; /* #003399 Primary Blue */
     --primary-foreground: 0 0% 100%;
+    
     --secondary: 203 21% 68%; /* #9EB2BF Muted Blue */
     --secondary-foreground: 220 100% 20%;
+    
     --muted: 32 10% 85%;
     --muted-foreground: 220 20% 40%;
-    --accent: 46 100% 65%; /* #FFD54F Yellow */
+    
+    --accent: 46 100% 65%; /* #FFD54F Warning Yellow */
     --accent-foreground: 220 100% 10%;
-    --destructive: 358 85% 52%; /* #ED1C24 Red */
+    
+    --destructive: 358 85% 52%; /* #ED1C24 Alert Red */
     --destructive-foreground: 0 0% 98%;
+    
     --border: 32 15% 70%;
     --input: 32 15% 70%;
     --ring: 220 100% 30%;
     --radius: 0.75rem;
-    --chart-1: 220 100% 30%;
-    --chart-2: 152 100% 33%; /* #00A859 Green */
-    --chart-3: 46 100% 65%;
-    --chart-4: 358 85% 52%;
-    --chart-5: 203 21% 68%;
+    
+    --chart-1: 220 100% 30%; /* Blue */
+    --chart-2: 152 100% 33%; /* #00A859 Success Green */
+    --chart-3: 46 100% 65%; /* Yellow */
+    --chart-4: 358 85% 52%; /* Red */
+    --chart-5: 203 21% 68%; /* Muted */
+
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 100% 20%;
     --sidebar-primary: 220 100% 30%;
@@ -67,7 +79,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground font-body antialiased;
   }
 }
 
