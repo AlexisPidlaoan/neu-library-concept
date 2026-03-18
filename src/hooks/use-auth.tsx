@@ -66,15 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   
   const manualProfileRef = useRef<boolean>(false);
-  const pendingIdRef = useRef<string | null>(null);
-
-  // Sync ref with state for use inside the auth listener without adding dependency
-  useEffect(() => {
-    pendingIdRef.current = pendingStudentId;
-  }, [pendingStudentId]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // If we are manually handling a terminal session, don't overwrite with auth listener
       if (manualProfileRef.current) {
         setLoading(false);
         return;
@@ -98,7 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         const isInstitutional = email.endsWith('@neu.edu.ph') || isSuperAdmin;
 
-        // Block non-institutional logins unless anonymous
         if (!firebaseUser.isAnonymous && !isInstitutional) {
           await signOut(auth);
           toast({ variant: 'destructive', title: 'Institutional Required', description: 'Use your @neu.edu.ph account.' });
@@ -127,16 +121,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             currentProfile.role = 'admin';
           }
         } else {
-          // New user (or linking user)
-          const studentIdToLink = pendingIdRef.current;
-          
+          // New User Setup
           currentProfile = {
             id: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName || (firebaseUser.isAnonymous ? 'Guest Student' : 'NEU Student'),
             photoURL: firebaseUser.photoURL,
             role: isSuperAdmin ? 'admin' : 'student',
-            studentId: studentIdToLink || undefined,
             isBlocked: false,
             isGuest: firebaseUser.isAnonymous
           };
@@ -145,11 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (currentProfile.role === 'admin') {
             await setDoc(doc(db, 'admins', firebaseUser.uid), { active: true });
-          }
-
-          // ONLY clear the pending ID if we've successfully linked a real account
-          if (!firebaseUser.isAnonymous) {
-            setPendingStudentId(null);
           }
         }
 
@@ -163,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [toast]); // Dependency on pendingStudentId removed to prevent reset cycles
+  }, [toast]);
 
   const login = async (isAdmin: boolean) => {
     setLoading(true);
@@ -182,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithId = async (id: string) => {
     setLoading(true);
     try {
-      // Establish session if none exists to satisfy rules
+      // Ensure we have a session to query Firestore
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
@@ -204,13 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPendingStudentId(null);
         router.push('/dashboard/check-in');
       } else {
-        // Not found: Trigger the "Link/Guest" UI and STAY THERE
+        // ID not in database -> show linking options
         setPendingStudentId(id);
+        setLoading(false); 
       }
     } catch (error: any) {
       console.error("Terminal Login Error:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Terminal connection error.' });
-    } finally {
       setLoading(false);
     }
   };
@@ -242,7 +228,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     manualProfileRef.current = false;
     try {
-      // Use existing anonymous session or create one
       if (!auth.currentUser) await signInAnonymously(auth);
       router.push('/dashboard/check-in');
     } catch (error) {
@@ -251,7 +236,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const cancelLinking = () => setPendingStudentId(null);
+  const cancelLinking = () => {
+    setPendingStudentId(null);
+    setLoading(false);
+  };
 
   const logout = async () => {
     setLoading(true);
