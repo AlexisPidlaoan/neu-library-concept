@@ -1,28 +1,40 @@
 
-"use client"
+'use client';
 
-import { useState } from 'react'
-import { useAuthContext } from '@/hooks/use-auth'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { GraduationCap, Lock, Mail, Loader2 } from 'lucide-react'
+import { useState } from 'react';
+import { useAuthContext } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { GraduationCap, Lock, Mail, Loader2, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 export default function AdminLoginPage() {
-  const { login, loginWithEmail, loading } = useAuthContext()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const { login, loginWithEmail, loading } = useAuthContext();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleEmailLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    loginWithEmail(email, password)
-  }
+    e.preventDefault();
+    loginWithEmail(email, password);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
       <Card className="w-full max-w-md border-none shadow-2xl">
-        <CardHeader className="text-center pb-2">
+        <CardHeader className="text-center pb-2 relative">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            asChild 
+            className="absolute left-4 top-4 text-slate-400 hover:text-primary transition-colors"
+          >
+            <Link href="/">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Terminal
+            </Link>
+          </Button>
           <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4 shadow-lg">
             <GraduationCap className="h-7 w-7 text-white" />
           </div>
@@ -34,7 +46,7 @@ export default function AdminLoginPage() {
             <Button 
               variant="outline" 
               onClick={() => login(true)}
-              className="w-full h-12 flex items-center justify-center gap-3 border-2 hover:bg-slate-50 transition-all"
+              className="w-full h-12 flex items-center justify-center gap-3 border-2 hover:bg-slate-50 transition-all rounded-xl"
               disabled={loading}
             >
               <svg viewBox="0 0 24 24" className="h-5 w-5" xmlns="http://www.w3.org/2000/svg">
@@ -81,13 +93,18 @@ export default function AdminLoginPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full h-11" disabled={loading}>
+              <Button type="submit" className="w-full h-11 rounded-xl" disabled={loading}>
                 {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Log In to System'}
               </Button>
             </form>
           </div>
         </CardContent>
+        <CardFooter className="flex justify-center border-t py-4">
+           <Button variant="link" asChild className="text-slate-400 text-xs">
+              <Link href="/">Return to Student Login</Link>
+           </Button>
+        </CardFooter>
       </Card>
     </div>
-  )
+  );
 }
