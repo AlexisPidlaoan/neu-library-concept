@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -7,7 +8,8 @@ import {
   GoogleAuthProvider, 
   signOut, 
   User as FirebaseUser,
-  signInAnonymously
+  signInAnonymously,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import { 
   doc, 
@@ -27,8 +29,6 @@ import { useToast } from '@/hooks/use-toast';
 
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
-
-// Force prompt to ensure account selection if multiple accounts exist
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 interface UserProfile {
@@ -49,6 +49,7 @@ interface AuthContextType {
   pendingStudentId: string | null;
   login: (isAdmin: boolean) => Promise<void>;
   loginWithId: (id: string) => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
   continueAsGuest: () => Promise<void>;
   cancelLinking: () => void;
   logout: () => Promise<void>;
@@ -66,120 +67,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const email = firebaseUser.email?.toLowerCase() || '';
-        const isInstitutional = email.endsWith('@neu.edu.ph');
-        
-        // Define hardcoded super admins
-        const isWhitelisted = [
-          'pampa4858@gmail.com', 
-          'admin@neu.edu.ph', 
-          'alexis.pidlaoan@neu.edu.ph', 
-          'jcesperanza@neu.edu.ph'
-        ].includes(email);
-        
-        // Block non-institutional emails unless whitelisted
-        if (!firebaseUser.isAnonymous && !isInstitutional && !isWhitelisted) {
-          await signOut(auth);
-          toast({
-            variant: 'destructive',
-            title: 'Unauthorized Domain',
-            description: 'Access is restricted to @neu.edu.ph accounts.'
-          });
-          setLoading(false);
-          return;
-        }
+      try {
+        if (firebaseUser) {
+          const email = firebaseUser.email?.toLowerCase() || '';
+          const isInstitutional = email.endsWith('@neu.edu.ph');
+          const isWhitelisted = [
+            'pampa4858@gmail.com', 
+            'admin@neu.edu.ph', 
+            'alexis.pidlaoan@neu.edu.ph', 
+            'jcesperanza@neu.edu.ph'
+          ].includes(email);
 
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          const data = userDoc.data() as UserProfile;
-          
-          if (data.isBlocked) {
+          // Enforce institutional domain for Google accounts
+          if (!firebaseUser.isAnonymous && !isInstitutional && !isWhitelisted) {
             await signOut(auth);
-            toast({
-              variant: 'destructive',
-              title: 'Access Restricted',
-              description: 'This account has been blocked by administration.'
-            });
+            toast({ variant: 'destructive', title: 'Unauthorized', description: 'Institutional @neu.edu.ph email required.' });
             setLoading(false);
             return;
           }
 
-          // Link ID if user was in pending state
-          if (pendingStudentId && !data.studentId && !firebaseUser.isAnonymous) {
-            await updateDoc(userRef, { studentId: pendingStudentId, updatedAt: serverTimestamp() });
-            data.studentId = pendingStudentId;
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userRef);
+
+          if (userDoc.exists()) {
+            const data = userDoc.data() as UserProfile;
+            if (data.isBlocked) {
+              await signOut(auth);
+              toast({ variant: 'destructive', title: 'Blocked', description: 'Account restricted by administration.' });
+              setLoading(false);
+              return;
+            }
+
+            // Super Admin override for jcesperanza
+            if (email === 'jcesperanza@neu.edu.ph' && data.role !== 'admin') {
+              await updateDoc(userRef, { role: 'admin', updatedAt: serverTimestamp() });
+              data.role = 'admin';
+            }
+
+            // Link pending ID if user just signed in with Google
+            if (pendingStudentId && !data.studentId && !firebaseUser.isAnonymous) {
+              await updateDoc(userRef, { studentId: pendingStudentId, updatedAt: serverTimestamp() });
+              data.studentId = pendingStudentId;
+              setPendingStudentId(null);
+            }
+
+            setProfile({ ...data, id: firebaseUser.uid });
+            setUser(firebaseUser);
+          } else {
+            // Initialize New User Profile
+            const newProfile: UserProfile = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName || (firebaseUser.isAnonymous ? 'Guest User' : 'New User'),
+              photoURL: firebaseUser.photoURL,
+              role: isWhitelisted ? 'admin' : 'student',
+              studentId: pendingStudentId || undefined,
+              isBlocked: false,
+              isGuest: firebaseUser.isAnonymous
+            };
+            await setDoc(userRef, { ...newProfile, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+            if (newProfile.role === 'admin') await setDoc(doc(db, 'admins', firebaseUser.uid), { active: true });
+            setProfile(newProfile);
+            setUser(firebaseUser);
             setPendingStudentId(null);
           }
-
-          // Ensure whitelisted admins keep their role
-          if (isWhitelisted && data.role !== 'admin') {
-            await updateDoc(userRef, { role: 'admin', updatedAt: serverTimestamp() });
-            data.role = 'admin';
-          }
-          
-          setProfile({ ...data, id: firebaseUser.uid });
-          setUser(firebaseUser);
-          
-          // Initial redirect
-          const path = window.location.pathname;
-          if (path === '/' || path === '/admin/login') {
-            router.push(data.role === 'admin' ? '/admin/dashboard' : '/dashboard/check-in');
-          }
         } else {
-          // New User Creation
-          const newProfile: UserProfile = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            photoURL: firebaseUser.photoURL,
-            role: isWhitelisted ? 'admin' : 'student',
-            studentId: pendingStudentId || undefined,
-            isBlocked: false,
-            isGuest: firebaseUser.isAnonymous
-          };
-          
-          await setDoc(userRef, {
-            ...newProfile,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
-
-          if (isWhitelisted) {
-             await setDoc(doc(db, 'admins', firebaseUser.uid), { active: true });
-          }
-          
-          setProfile(newProfile);
-          setUser(firebaseUser);
-          setPendingStudentId(null);
-          
-          if (window.location.pathname === '/') {
-            router.push('/dashboard/check-in');
-          }
+          setUser(null);
+          setProfile(null);
         }
-      } else {
-        setUser(null);
-        setProfile(null);
+      } catch (err) {
+        console.error("Auth Listener Error:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [pendingStudentId, toast, router]);
+  }, [pendingStudentId, toast]);
 
   const login = async (isAdmin: boolean) => {
     setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        toast({ title: 'Login Cancelled', description: 'The sign-in popup was closed.' });
-      } else {
+      if (error.code !== 'auth/popup-closed-by-user') {
         toast({ variant: 'destructive', title: 'Login Error', description: error.message });
       }
-    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), pass);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid admin credentials.' });
       setLoading(false);
     }
   };
@@ -187,30 +170,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithId = async (id: string) => {
     setLoading(true);
     try {
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+      
       const q = query(collection(db, 'users'), where('studentId', '==', id), limit(1));
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
         const userData = querySnapshot.docs[0].data() as UserProfile;
         if (userData.isBlocked) {
-          toast({ variant: 'destructive', title: 'Access Denied', description: 'This ID has been blocked.' });
+          toast({ variant: 'destructive', title: 'Blocked', description: 'This Student ID is currently banned.' });
           setLoading(false);
           return;
         }
-        // Manual login simulation for Terminal
         setProfile({ ...userData, id: querySnapshot.docs[0].id });
-        setUser({ 
-          uid: querySnapshot.docs[0].id, 
-          displayName: userData.displayName, 
-          email: userData.email,
-          photoURL: userData.photoURL 
-        } as any);
         router.push('/dashboard/check-in');
       } else {
         setPendingStudentId(id);
       }
-    } catch (error) {
-      console.error("Terminal Login Error:", error);
+    } catch (error: any) {
+      console.error("Terminal Logic Error:", error);
+      toast({ variant: 'destructive', title: 'Terminal Error', description: 'System busy. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -219,10 +200,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const continueAsGuest = async () => {
     setLoading(true);
     try {
-      await signInAnonymously(auth);
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+      router.push('/dashboard/check-in');
     } catch (error) {
-      console.error("Guest Auth Error:", error);
-    } finally {
+      toast({ variant: 'destructive', title: 'Error', description: 'Guest access failed.' });
       setLoading(false);
     }
   };
@@ -230,14 +213,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const cancelLinking = () => setPendingStudentId(null);
 
   const logout = async () => {
-    await signOut(auth);
-    router.push('/');
+    setLoading(true);
+    try {
+      await signOut(auth);
+      setPendingStudentId(null);
+      router.push('/');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, profile, loading, pendingStudentId, 
-      login, loginWithId, 
+      login, loginWithId, loginWithEmail,
       continueAsGuest, cancelLinking, logout 
     }}>
       {children}
