@@ -36,7 +36,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=2000&auto=format&fit=crop')" }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative" style={{ backgroundImage: "url('/NEU Library.png')" }}>
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
       
       <div className="w-full max-w-md relative z-10">
