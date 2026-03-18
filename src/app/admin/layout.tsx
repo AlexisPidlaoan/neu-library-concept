@@ -28,6 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, profile, loading, router, isLoginPage]);
 
+  // If it's the login page, render it immediately without blocking
   if (isLoginPage) return <>{children}</>;
 
   if (loading) {
