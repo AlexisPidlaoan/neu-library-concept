@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Wifi, ShieldCheck, Loader2, Lock, GraduationCap } from 'lucide-react';
+import { ShieldCheck, Loader2, Lock, GraduationCap } from 'lucide-react';
 
 export default function LandingPage() {
   const { loginWithId, login, loading, pendingStudentId, continueAsGuest, cancelLinking } = useAuthContext();
@@ -44,8 +45,8 @@ export default function LandingPage() {
             <div className="mx-auto w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md border border-white/20">
               <GraduationCap className="h-10 w-10 text-white" />
             </div>
-            <h1 className="text-3xl font-extrabold mb-2 tracking-tight text-white">NEU Library Log</h1>
-            <p className="text-white/70 font-medium">Digital Entry Terminal</p>
+            <h1 className="text-3xl font-extrabold mb-2 tracking-tight">NEU Library</h1>
+            <p className="text-white/70 font-medium uppercase tracking-widest text-xs">Digital Entry Terminal</p>
           </div>
 
           <CardContent className="p-8">
@@ -54,14 +55,14 @@ export default function LandingPage() {
                 <div className="space-y-2">
                   <h3 className="text-xl font-bold text-slate-800">Account Not Linked</h3>
                   <p className="text-sm text-slate-500">
-                    Student ID <span className="font-mono font-bold text-primary">{pendingStudentId}</span> is new to the system.
+                    Student ID <span className="font-mono font-bold text-primary">{pendingStudentId}</span> is not registered.
                   </p>
                 </div>
                 
                 <div className="space-y-3">
                   <Button 
                     onClick={() => login(false)} 
-                    className="w-full h-14 bg-white text-slate-800 border-2 border-slate-200 hover:border-primary/30 hover:bg-slate-50 flex items-center justify-center gap-3 font-semibold transition-all shadow-sm"
+                    className="w-full h-14 bg-white text-slate-800 border-2 border-slate-200 hover:border-primary/30 flex items-center justify-center gap-3 font-semibold shadow-sm rounded-xl"
                     disabled={loading}
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -70,23 +71,15 @@ export default function LandingPage() {
                       <path d="M5.84 14.09c-.22-.67-.35-1.39-.35-2.09s.13-1.42.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                     </svg>
-                     Link with Institutional Google
+                     Link with Institutional Email
                   </Button>
                   
                   <div className="flex flex-col gap-2 pt-2">
-                    <Button 
-                      variant="link" 
-                      onClick={continueAsGuest}
-                      className="text-primary font-bold"
-                    >
-                      Continue as Guest
+                    <Button variant="link" onClick={continueAsGuest} className="text-primary font-bold">
+                      Continue as Guest Student
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      onClick={cancelLinking}
-                      className="text-slate-400 text-xs hover:bg-transparent"
-                    >
-                      Cancel and use different ID
+                    <Button variant="ghost" onClick={cancelLinking} className="text-slate-400 text-xs">
+                      Back to Entry
                     </Button>
                   </div>
                 </div>
@@ -94,22 +87,21 @@ export default function LandingPage() {
             ) : (
               <form onSubmit={handleIdSubmit} className="space-y-6">
                 <div className="space-y-3">
-                  <Label htmlFor="student-id" className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center block">STUDENT ID ENTRY</Label>
+                  <Label className="text-xs font-black text-slate-400 uppercase tracking-widest text-center block">STUDENT ID ENTRY</Label>
                   <Input 
-                    id="student-id"
                     placeholder="YY-XXXXX-XXX"
                     value={studentId}
                     onChange={handleIdChange}
-                    className="h-16 text-2xl text-center font-mono border-2 border-slate-100 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-xl"
+                    className="h-16 text-2xl text-center font-mono border-2 border-slate-100 focus:border-primary transition-all rounded-xl"
                   />
                 </div>
 
                 <Button 
                   type="submit" 
                   disabled={loading || studentId.length < 12}
-                  className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-bold text-lg rounded-xl shadow-lg shadow-primary/20"
+                  className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-bold text-lg rounded-xl shadow-lg"
                 >
-                  {loading ? <Loader2 className="animate-spin h-6 w-6" /> : 'PROCEED TO CHECK-IN'}
+                  {loading ? <Loader2 className="animate-spin h-6 w-6" /> : 'PROCEED TO DASHBOARD'}
                 </Button>
 
                 <div className="relative">
@@ -117,14 +109,14 @@ export default function LandingPage() {
                     <span className="w-full border-t border-slate-100" />
                   </div>
                   <div className="relative flex justify-center text-[10px] uppercase font-black text-slate-300">
-                    <span className="bg-white px-4">Instant Access</span>
+                    <span className="bg-white px-4">OR USE EMAIL</span>
                   </div>
                 </div>
 
                 <Button 
                   type="button"
                   onClick={() => login(false)}
-                  className="w-full h-14 bg-white text-slate-800 border-2 border-slate-200 hover:border-primary/30 hover:bg-slate-50 flex items-center justify-center gap-3 font-semibold rounded-xl transition-all shadow-sm"
+                  className="w-full h-14 bg-white text-slate-800 border-2 border-slate-200 hover:border-primary/30 flex items-center justify-center gap-3 font-semibold rounded-xl shadow-sm"
                   disabled={loading}
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -137,10 +129,7 @@ export default function LandingPage() {
                 </Button>
 
                 <div className="pt-6 flex justify-center border-t border-slate-50">
-                  <Link 
-                    href="/admin/login" 
-                    className="text-slate-400 hover:text-primary text-xs font-semibold flex items-center gap-2 transition-colors"
-                  >
+                  <Link href="/admin/login" className="text-slate-400 hover:text-primary text-xs font-semibold flex items-center gap-2">
                     <Lock className="h-3 w-3" />
                     Library Staff Portal
                   </Link>
@@ -152,7 +141,7 @@ export default function LandingPage() {
 
         <div className="mt-8 flex items-center justify-center gap-3 text-white/80 text-sm font-bold">
           <ShieldCheck className="h-5 w-5 text-green-400" />
-          <span>Authorized Access Only</span>
+          <span>Authorized NEU Access Only</span>
         </div>
       </div>
     </div>
