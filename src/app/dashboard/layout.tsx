@@ -33,8 +33,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isGuest = profile?.isGuest === true;
 
   const menuItems = [
-    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-[#00A859]' }, 
-    { label: 'My History', icon: History, href: '/dashboard/history', color: 'text-[#FFD54F]' }, 
+    { label: 'Check-in', icon: LogIn, href: '/dashboard/check-in', color: 'text-success' }, 
+    { label: 'My History', icon: History, href: '/dashboard/history', color: 'text-accent' }, 
   ];
 
   return (
@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarHeader className="p-4">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shadow-lg">
-              < GraduationCap className="h-5 w-5 text-white" />
+              <GraduationCap className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-primary group-data-[collapsible=icon]:hidden">NEU Library</span>
           </Link>
@@ -111,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={logout} className="text-[#ED1C24] cursor-pointer font-semibold">
+              <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer font-semibold">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>
