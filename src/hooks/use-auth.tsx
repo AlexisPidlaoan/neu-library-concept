@@ -28,6 +28,9 @@ import { useToast } from '@/hooks/use-toast';
 const { auth, firestore: db } = initializeFirebase();
 const googleProvider = new GoogleAuthProvider();
 
+// Force prompt to ensure account selection if multiple accounts exist
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
 interface UserProfile {
   id: string;
   email: string | null;
@@ -64,21 +67,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Domain Enforcement
-        const isInstitutional = firebaseUser.email?.endsWith('@neu.edu.ph');
+        const email = firebaseUser.email?.toLowerCase() || '';
+        const isInstitutional = email.endsWith('@neu.edu.ph');
+        
+        // Define hardcoded super admins
         const isWhitelisted = [
           'pampa4858@gmail.com', 
           'admin@neu.edu.ph', 
           'alexis.pidlaoan@neu.edu.ph', 
           'jcesperanza@neu.edu.ph'
-        ].includes(firebaseUser.email?.toLowerCase() || '');
+        ].includes(email);
         
+        // Block non-institutional emails unless whitelisted
         if (!firebaseUser.isAnonymous && !isInstitutional && !isWhitelisted) {
           await signOut(auth);
           toast({
             variant: 'destructive',
-            title: 'Unauthorized Email',
-            description: 'Please use your @neu.edu.ph institutional account.'
+            title: 'Unauthorized Domain',
+            description: 'Access is restricted to @neu.edu.ph accounts.'
           });
           setLoading(false);
           return;
@@ -95,25 +101,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             toast({
               variant: 'destructive',
               title: 'Access Restricted',
-              description: 'This account has been blocked by the administrator.'
+              description: 'This account has been blocked by administration.'
             });
             setLoading(false);
             return;
           }
 
+          // Link ID if user was in pending state
           if (pendingStudentId && !data.studentId && !firebaseUser.isAnonymous) {
-            await updateDoc(userRef, { studentId: pendingStudentId });
+            await updateDoc(userRef, { studentId: pendingStudentId, updatedAt: serverTimestamp() });
             data.studentId = pendingStudentId;
             setPendingStudentId(null);
+          }
+
+          // Ensure whitelisted admins keep their role
+          if (isWhitelisted && data.role !== 'admin') {
+            await updateDoc(userRef, { role: 'admin', updatedAt: serverTimestamp() });
+            data.role = 'admin';
           }
           
           setProfile({ ...data, id: firebaseUser.uid });
           setUser(firebaseUser);
           
-          if (window.location.pathname === '/' || window.location.pathname === '/admin/login') {
+          // Initial redirect
+          const path = window.location.pathname;
+          if (path === '/' || path === '/admin/login') {
             router.push(data.role === 'admin' ? '/admin/dashboard' : '/dashboard/check-in');
           }
         } else {
+          // New User Creation
           const newProfile: UserProfile = {
             id: firebaseUser.uid,
             email: firebaseUser.email,
@@ -130,6 +146,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
+
+          if (isWhitelisted) {
+             await setDoc(doc(db, 'admins', firebaseUser.uid), { active: true });
+          }
           
           setProfile(newProfile);
           setUser(firebaseUser);
@@ -154,15 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
-      console.error("Login Error:", error);
-      if (error.code === 'auth/unauthorized-domain') {
-        toast({ 
-          variant: 'destructive', 
-          title: 'Unauthorized Domain', 
-          description: 'Please add this domain to Firebase Console Authentication settings.' 
-        });
-      } else if (error.code !== 'auth/popup-closed-by-user') {
-        toast({ variant: 'destructive', title: 'Login Failed', description: error.message });
+      if (error.code === 'auth/popup-closed-by-user') {
+        toast({ title: 'Login Cancelled', description: 'The sign-in popup was closed.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Login Error', description: error.message });
       }
     } finally {
       setLoading(false);
@@ -178,18 +193,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!querySnapshot.empty) {
         const userData = querySnapshot.docs[0].data() as UserProfile;
         if (userData.isBlocked) {
-          toast({ variant: 'destructive', title: 'Access Denied', description: 'This ID is restricted.' });
+          toast({ variant: 'destructive', title: 'Access Denied', description: 'This ID has been blocked.' });
           setLoading(false);
           return;
         }
+        // Manual login simulation for Terminal
         setProfile({ ...userData, id: querySnapshot.docs[0].id });
-        setUser({ uid: querySnapshot.docs[0].id, displayName: userData.displayName, email: userData.email } as any);
+        setUser({ 
+          uid: querySnapshot.docs[0].id, 
+          displayName: userData.displayName, 
+          email: userData.email,
+          photoURL: userData.photoURL 
+        } as any);
         router.push('/dashboard/check-in');
       } else {
         setPendingStudentId(id);
       }
     } catch (error) {
-      console.error("ID Search Error:", error);
+      console.error("Terminal Login Error:", error);
     } finally {
       setLoading(false);
     }
