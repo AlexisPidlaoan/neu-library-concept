@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X, Type, Briefcase } from 'lucide-react';
+import { Check, Loader2, BookOpen, User as UserIcon, Keyboard, School, X, Type, Briefcase, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -33,7 +33,7 @@ const COMMON_PURPOSES = [
 ];
 
 export default function CheckInPage() {
-  const { profile } = useAuthContext();
+  const { profile, logout } = useAuthContext();
   const { toast } = useToast();
   const [guestName, setGuestName] = useState('');
   const [userType, setUserType] = useState<'student' | 'teacher' | 'staff'>('student');
@@ -42,6 +42,7 @@ export default function CheckInPage() {
   const [college, setCollege] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [countdown, setCountdown] = useState(6);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -53,6 +54,26 @@ export default function CheckInPage() {
 
   const isGuest = profile?.isGuest === true;
   const headerName = isGuest ? (guestName || 'Guest User') : (profile?.displayName || 'User');
+
+  // Handle countdown and auto-logout
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showSuccess && profile?.role !== 'admin') {
+      timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            logout();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [showSuccess, profile?.role, logout]);
 
   useEffect(() => {
     if (isCustomPurpose && customPurpose.length > 2) {
@@ -101,12 +122,17 @@ export default function CheckInPage() {
     addDoc(collection(db, 'visits'), visitData)
       .then(() => {
         setShowSuccess(true);
+        setCountdown(6);
         setPurposeSelection('');
         setCustomPurpose('');
         setCollege('');
         setGuestName('');
         setIsSubmitting(false);
-        setTimeout(() => setShowSuccess(false), 5000);
+        
+        // Only auto-hide message if admin, otherwise countdown handles the transition via logout
+        if (profile?.role === 'admin') {
+          setTimeout(() => setShowSuccess(false), 5000);
+        }
       })
       .catch(async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -123,12 +149,20 @@ export default function CheckInPage() {
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 relative">
       {showSuccess && (
         <div className="fixed bottom-10 right-10 z-[100] animate-in fade-in slide-in-from-right-10 duration-500">
-          <Card className="shadow-2xl border-slate-200 w-80 md:w-96 overflow-hidden bg-white">
+          <Card className="shadow-2xl border-slate-200 w-80 md:w-96 overflow-hidden bg-white border-l-4 border-[#00A859]">
             <CardContent className="p-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="space-y-1">
                   <h4 className="font-bold text-slate-900 text-base leading-none">Welcome to NEU Library!</h4>
-                  <p className="text-sm text-muted-foreground">Your visit has been recorded successfully.</p>
+                  <div className="text-sm text-muted-foreground">
+                    <p>Your visit has been recorded successfully.</p>
+                    {profile?.role !== 'admin' && (
+                      <p className="mt-2 font-semibold text-primary flex items-center gap-2">
+                        <LogOut className="h-3 w-3" />
+                        Redirecting to main screen in {countdown}s...
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <Check className="h-6 w-6 text-[#00A859] stroke-[3px] shrink-0" />
               </div>
