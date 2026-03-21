@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { DatePicker } from '@/components/ui/date-picker'
 import { DateRange } from 'react-day-picker'
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -55,7 +55,12 @@ export default function AdminDashboard() {
         if (!isWithinInterval(visitDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) })) {
           return false
         }
+      } else if (dateRange?.from) {
+        if (visitDate < startOfDay(dateRange.from)) return false
+      } else if (dateRange?.to) {
+        if (visitDate > endOfDay(dateRange.to)) return false
       }
+
       if (collegeFilter !== 'all' && v.college !== collegeFilter) return false
       if (userTypeFilter !== 'all' && v.userType !== userTypeFilter) return false
       if (searchQuery) {
@@ -164,19 +169,20 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-muted-foreground">Real-time statistics and departmental usage tracking.</p>
         </div>
-        <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90">
+        <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90 shadow-md">
           <Download className="h-4 w-4 mr-2" />
           Export Report
         </Button>
       </div>
 
-      <Card className="border-none shadow-sm bg-white">
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <Card className="border-none shadow-sm bg-white overflow-hidden">
+        <CardContent className="p-6 space-y-6">
+          {/* Row 1: Quick View and Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">Quick View</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick View</label>
               <Select value={quickFilter} onValueChange={handleQuickFilter}>
-                <SelectTrigger className="bg-white">
+                <SelectTrigger className="bg-white border-slate-200 h-10">
                   <SelectValue placeholder="Quick Range" />
                 </SelectTrigger>
                 <SelectContent>
@@ -188,18 +194,13 @@ export default function AdminDashboard() {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">Custom Dates</label>
-              <DateRangePicker value={dateRange} onChange={setDateRange} />
-            </div>
             
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">College</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">College</label>
               <Select value={collegeFilter} onValueChange={setCollegeFilter}>
-                <SelectTrigger className="bg-white">
+                <SelectTrigger className="bg-white border-slate-200 h-10">
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
+                    <MapPin className="h-4 w-4 text-primary" />
                     <SelectValue placeholder="All Departments" />
                   </div>
                 </SelectTrigger>
@@ -211,11 +212,11 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">User Type</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">User Type</label>
               <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
-                <SelectTrigger className="bg-white">
+                <SelectTrigger className="bg-white border-slate-200 h-10">
                   <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
+                    <Users className="h-4 w-4 text-primary" />
                     <SelectValue placeholder="All Roles" />
                   </div>
                 </SelectTrigger>
@@ -229,17 +230,38 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">Search Logs</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Search Logs</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Filter name/purpose..." 
-                  className="pl-10 bg-white"
+                  className="pl-10 bg-white border-slate-200 h-10"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
               </div>
             </div>
+          </div>
+
+          {/* Row 2: Custom Date Range (Separate pickers) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-slate-50">
+            <DatePicker 
+              label="Starting Date" 
+              date={dateRange?.from} 
+              setDate={(d) => {
+                setQuickFilter('custom');
+                setDateRange(prev => ({ ...prev, from: d }));
+              }} 
+            />
+            <DatePicker 
+              label="Ending Date" 
+              date={dateRange?.to} 
+              setDate={(d) => {
+                setQuickFilter('custom');
+                setDateRange(prev => ({ ...prev, to: d }));
+              }} 
+            />
+            <div className="hidden lg:block lg:col-span-2"></div>
           </div>
         </CardContent>
       </Card>
