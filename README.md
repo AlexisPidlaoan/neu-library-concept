@@ -3,8 +3,8 @@
 A dedicated digital logbook and analytics platform for **New Era University (NEU)** to monitor, manage, and analyze library usage efficiently.
 
 # Try my App!
-### 
----
+### https://neu-library-concept.vercel.app/
+--- 
 
 ## 🌟 Overview
 
