@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
@@ -76,14 +75,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (manualProfileRef.current) {
+      if (!firebaseUser) {
+        setUser(null);
+        setProfile(null);
         setLoading(false);
         return;
       }
 
-      if (!firebaseUser) {
-        setUser(null);
-        setProfile(null);
+      // If we are already manually managing the profile (like guest or ID login), skip listener sync
+      if (manualProfileRef.current) {
+        setUser(firebaseUser);
         setLoading(false);
         return;
       }
@@ -101,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Set user immediately to stop loading if profile takes time
+        // Set state immediately to unblock UI
         setUser(firebaseUser);
         setLoading(false);
 
@@ -146,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setProfile(currentProfile);
       } catch (err) {
-        console.error("Auth Listener Error:", err);
+        console.error("Auth sync error:", err);
         setLoading(false);
       }
     });
@@ -171,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithId = async (id: string) => {
     setLoading(true);
     try {
+      // Ensure we have at least an anonymous session for security rules
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
