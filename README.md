@@ -1,4 +1,4 @@
-# 📚 NEU Library Visitor Management System
+# 📚 NEU Library Visitor Management System (Personal Project)
 
 A dedicated digital logbook and analytics platform for **New Era University (NEU)** to monitor, manage, and analyze library usage efficiently.
 
